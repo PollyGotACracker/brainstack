@@ -1,0 +1,28 @@
+# Config / Settings
+config.json
+settings.json
+hooks.json
+
+# Config folders in archive/
+archive/.*
+!archive/.claude/
+
+# Environments
+.env*
+!.env.example
+
+# Temporary files
+__pycache__/
+*.pyc
+
+# Projects folder
+project/*
+projects/*
+
+# Discord bot personal data
+chat_state/
+reminders.json*
+memory.sqlite3*
+memory_approval.json*
+
+

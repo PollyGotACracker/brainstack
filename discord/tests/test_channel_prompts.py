@@ -1,0 +1,270 @@
+"""채널 종류별 시스템·턴 프롬프트 분리와 변형 표식, 캐릭터 기억 주입을 확인한다."""
+
+from __future__ import annotations
+
+import importlib
+import random
+import shutil
+import sys
+import tempfile
+import unittest
+from datetime import date
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock, patch
+
+import discord
+
+
+DISCORD_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = DISCORD_ROOT.parent
+sys.path.insert(0, str(DISCORD_ROOT / "bot"))
+bot = importlib.import_module("bot")
+config_module = importlib.import_module("config")
+prompts_module = importlib.import_module("prompts")
+
+TOOLS_CONFIG = config_module.ToolsConfig(channel_history_max=1, server_channels_max=1)
+REMINDERS_CONFIG = config_module.RemindersConfig(
+    timezone_offset_hours=9, max_days=1, check_seconds=60, repeat_grace_minutes=1, late_minutes=1,
+)
+TURN_17_REQUEST = "작업 답변의 사실 주장은 이번 턴에 직접 연 공식 문서 원문이나 공식 URL을 주장 가까이에 붙인다."
+TURN_17_CHAT = "답변의 사실 주장은 이번 턴에 직접 연 공식 문서 원문이나 공식 URL을 주장 가까이에 붙인다."
+TURN_18 = "도구로 원문을 연 주장은 검증 완료로 표현하고, 원문 확인이 실패한 주장은 `미확인`으로 표시한다."
+TURN_19 = "사용자가 재확인을 요청하면 이번 턴에 원문을 다시 열어 확인한다."
+# 모든 채널에서 지운 TURN.md 20행의 뒷부분.
+REMOVED_TURN_TAIL = "진단과 함께 직접 답과 사용자가 취할 수 있는 결론을 포함한다."
+REQUEST_FOLLOW = "작업 요청에서는 사용자 의도에 맞는 직전 발언만 이어받는다."
+REQUEST_CONTINUATION = (
+    "작업 요청이면 현재 요청에서 답할 내용이나 응답 차례가 남은 캐릭터를 고른다. "
+    "작업 요청에서 이번 발언이 다른 캐릭터의 주장을 반박하거나 정정했으면 그 캐릭터를 고른다."
+)
+
+
+def roster_agents() -> list:
+    return [
+        bot.AgentConfig(role=role, name=name, korean_name=f"{name}-ko", token="", tools=[])
+        for role, name in bot.discover_agents(PROJECT_ROOT).items()
+    ]
+
+
+def build_chat(agent, agents, root=PROJECT_ROOT) -> str:
+    return bot.build_chat_system_prompt(
+        root, agent.role, agent.name, agent.korean_name, agents, TOOLS_CONFIG, REMINDERS_CONFIG,
+    )
+
+
+def build_request(agent, agents, root=PROJECT_ROOT) -> str:
+    return bot.build_request_system_prompt(
+        root, agent.role, agent.name, agent.korean_name, agents, None, TOOLS_CONFIG, REMINDERS_CONFIG,
+    )
+
+
+def fake_thread(thread_id: int, parent_id: int) -> discord.Thread:
+    thread = discord.Thread.__new__(discord.Thread)
+    thread.id = thread_id
+    thread.parent_id = parent_id
+    return thread
+
+
+class RenderVariantTests(unittest.TestCase):
+    def test_keeps_matching_and_removes_other_variants(self) -> None:
+        template = "앞\n  {{request:요청 줄}}\n  {{chat:채팅 줄}}\n뒤"
+        self.assertEqual(prompts_module.render_variant(template, "request"), "앞\n  요청 줄\n뒤")
+        self.assertEqual(prompts_module.render_variant(template, "chat"), "앞\n  채팅 줄\n뒤")
+
+    def test_multiline_variant(self) -> None:
+        template = "{{chat:첫 줄\n  둘째 줄}}\n끝"
+        self.assertEqual(prompts_module.render_variant(template, "chat"), "첫 줄\n  둘째 줄\n끝")
+        self.assertEqual(prompts_module.render_variant(template, "request"), "끝")
+
+    def test_broken_markers_raise(self) -> None:
+        for template in (
+            "{{chat:닫히지 않음\n다음 줄",
+            "앞 {{chat:줄 머리가 아님}}",
+            "{{other:알 수 없는 종류}}",
+            "{{chat:안에 {{request:중첩}}}}",
+            "닫는 표식만}}",
+        ):
+            with self.subTest(template=template), self.assertRaises(ValueError):
+                prompts_module.render_variant(template, "chat")
+        with self.assertRaises(ValueError):
+            prompts_module.render_variant("본문", "other")
+
+    def test_templates_render_for_both_kinds(self) -> None:
+        for path in (prompts_module.RUNTIME_PROMPT_PATH, config_module.TURN_PROMPT_PATH):
+            text = path.read_text(encoding="utf-8")
+            for kind in prompts_module.PROMPT_KINDS:
+                with self.subTest(path=path.name, kind=kind):
+                    rendered = prompts_module.render_variant(text, kind)
+                    self.assertNotIn("{{", rendered)
+                    self.assertNotIn("}}", rendered)
+
+
+class ChannelKindTests(unittest.TestCase):
+    def test_thread_uses_parent_channel(self) -> None:
+        cfg = SimpleNamespace(chat_channels={10})
+        self.assertTrue(prompts_module.is_chat_channel(SimpleNamespace(id=10), cfg))
+        self.assertFalse(prompts_module.is_chat_channel(SimpleNamespace(id=11), cfg))
+        self.assertTrue(prompts_module.is_chat_channel(fake_thread(99, 10), cfg))
+        self.assertFalse(prompts_module.is_chat_channel(fake_thread(10, 11), cfg))
+
+    def test_daily_chat_seed(self) -> None:
+        day = date(2026, 10, 2)
+        expected = sorted(random.Random(f"{day.isoformat()}:42:chat").sample(range(24 * 60), 3))
+        self.assertEqual(prompts_module.daily_chat_minutes(42, day, 3), expected)
+        self.assertEqual(prompts_module.daily_chat_minutes(42, day, 0), [])
+
+
+class ChatSystemPromptTests(unittest.TestCase):
+    def test_chat_prompt_for_every_role(self) -> None:
+        agents = roster_agents()
+        common = (PROJECT_ROOT / "AGENTS.principle.md").read_text(encoding="utf-8").strip()
+        chat_text = prompts_module.CHAT_PROMPT_PATH.read_text(encoding="utf-8")
+        self.assertEqual(len(agents), 6)
+        for agent in agents:
+            with self.subTest(role=agent.role):
+                prompt = build_chat(agent, agents)
+                soul = (PROJECT_ROOT / ".claude" / "agents" / agent.role / "SOUL.md").read_text(
+                    encoding="utf-8"
+                ).strip()
+                self.assertTrue(prompt.startswith(f"# Global rules\n\n{common}\n\n---\n\n# Persona\n\n{soul}"))
+                self.assertIn("# Discord chat channel", prompt)
+                self.assertIn(chat_text.split("\n", 3)[2], prompt)
+                self.assertIn("## Response control", prompt)
+                self.assertIn("턴 판단은 `[[next:...]]` 제어 줄로만 나타낸다.", prompt)
+                self.assertIn("- 사용자 선택·확인에 대한 응답이 필요하면", prompt)
+                self.assertIn(prompts_module.CHAT_MEMORY_BLOCK, prompt)
+                self.assertIn("대화 기록·장기기억·persona 기억에 있는 내용으로만 말한다", prompt)
+                self.assertIn("확인이 필요한 내용은 자기 도구로 직접 확인하거나", prompt)
+                tail = prompt.split(soul, 1)[1]
+                for banned in ("작업 요청", "역할 연결 판단", "실행 승인", "담당", "Archive", "$", "{{", "}}"):
+                    self.assertNotIn(banned, tail)
+                for other in agents:
+                    if other.name != agent.name:
+                        self.assertIn(f"- {other.korean_name} (내부 ID: {other.name}, 종: ", tail)
+                self.assertNotIn("역할: ", tail)
+                if agent.role == "reviewer":
+                    self.assertIn("사실 검증은 비판적으로 한다", prompt)
+
+    def test_chat_memory_block_drops_only_handoff_line(self) -> None:
+        memory_lines = prompts_module.MEMORY_BLOCK.split("\n")
+        chat_lines = prompts_module.CHAT_MEMORY_BLOCK.split("\n")
+        self.assertEqual(
+            [line for line in memory_lines if line not in chat_lines],
+            ["- 장기기억은 지식 저장소와 다르며, 장기기억 요청은 documenter에게 넘기지 않는다."],
+        )
+
+
+class CharacterMemoryTests(unittest.TestCase):
+    def make_root(self) -> Path:
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        root = Path(directory.name)
+        shutil.copy(PROJECT_ROOT / "AGENTS.principle.md", root / "AGENTS.principle.md")
+        role_dir = root / ".claude" / "agents" / "worker"
+        role_dir.mkdir(parents=True)
+        for name in ("AGENTS.md", "SOUL.md"):
+            shutil.copy(PROJECT_ROOT / ".claude" / "agents" / "worker" / name, role_dir / name)
+        return root
+
+    def test_signature_watches_chat_and_memory_files(self) -> None:
+        root = self.make_root()
+        memory_path = root / ".claude" / "agents" / "worker" / "MEMORY.md"
+        signature = bot.prompt_source_signature(root, "worker")
+        chat_stat = prompts_module.CHAT_PROMPT_PATH.stat()
+        self.assertIn(
+            (str(prompts_module.CHAT_PROMPT_PATH), chat_stat.st_mtime_ns, chat_stat.st_size), signature,
+        )
+        self.assertIn((str(memory_path), 0, -1), signature)
+        memory_path.write_text("- 젤리는 매운 떡볶이를 좋아한다.\n", encoding="utf-8")
+        stat = memory_path.stat()
+        changed = bot.prompt_source_signature(root, "worker")
+        self.assertIn((str(memory_path), stat.st_mtime_ns, stat.st_size), changed)
+        self.assertNotEqual(signature, changed)
+
+    def test_memory_file_is_injected_after_persona(self) -> None:
+        root = self.make_root()
+        agent = bot.AgentConfig(role="worker", name="jelly", korean_name="젤리", token="", tools=[])
+        without = {"request": build_request(agent, [agent], root), "chat": build_chat(agent, [agent], root)}
+        for prompt in without.values():
+            self.assertNotIn("# Character memory", prompt)
+        (root / ".claude" / "agents" / "worker" / "MEMORY.md").write_text(
+            "- 젤리는 매운 떡볶이를 좋아한다.\n", encoding="utf-8"
+        )
+        soul = (root / ".claude" / "agents" / "worker" / "SOUL.md").read_text(encoding="utf-8").strip()
+        block = "# Character memory\n\n- 젤리는 매운 떡볶이를 좋아한다.\n\n---\n\n"
+        for kind, prompt in (
+            ("request", build_request(agent, [agent], root)), ("chat", build_chat(agent, [agent], root)),
+        ):
+            with self.subTest(kind=kind):
+                self.assertIn(f"# Persona\n\n{soul}\n\n---\n\n{block}", prompt)
+                self.assertEqual(prompt.replace(block, "", 1), without[kind])
+
+
+class TurnPromptTests(unittest.IsolatedAsyncioTestCase):
+    async def run_turn(self, *, chat: bool):
+        channel = SimpleNamespace(
+            id=123, name="test", guild=SimpleNamespace(name="test"),
+            typing=Mock(return_value=AsyncMock()),
+            send=AsyncMock(return_value=SimpleNamespace(id=456)),
+        )
+        runtime = SimpleNamespace(
+            ready=SimpleNamespace(wait=AsyncMock()), render_chat_history=Mock(return_value=""),
+            chat_last_message={}, chat_last_user_id={}, chat_pending={}, append_chat=Mock(),
+            config=SimpleNamespace(
+                chat_model_for=Mock(return_value=("test", "low")), chat=SimpleNamespace(sdk_max_turns=1),
+                chat_topics={}, chat_channels={123} if chat else set(),
+            ),
+        )
+        client = SimpleNamespace(
+            runtime=runtime, get_channel=Mock(return_value=channel),
+            _refresh_request_prompt=Mock(), _refresh_chat_prompt=Mock(),
+            _request_prompt="REQUEST", _chat_prompt="CHAT",
+            _react_target_label=Mock(return_value="없음"),
+            agent=SimpleNamespace(name="jelly", role="worker", tools=[]), user=SimpleNamespace(id=1),
+        )
+        prompts: list[str] = []
+        options = Mock()
+
+        async def fake_query(*, prompt, options):
+            prompts.append(prompt)
+            yield SimpleNamespace(result="[[next:stop]]", subtype="success", num_turns=1)
+
+        with (
+            patch.object(bot, "query", fake_query),
+            patch.object(bot, "ResultMessage", SimpleNamespace),
+            patch.object(bot, "ClaudeAgentOptions", options),
+            patch.object(bot, "read_hooks", return_value={}),
+            patch.object(bot, "build_server_channels_server", return_value=None),
+            patch.object(bot, "ROLE_TOOL_BUILDERS", {}),
+        ):
+            await bot.AgentBot._handle_chat_turn(
+                client, 123, turn_index=1, turn_limit=2, autonomous=False,
+            )
+        return client, prompts[0], options.call_args.kwargs["system_prompt"]
+
+    async def test_request_turn_keeps_work_prompt(self) -> None:
+        client, prompt, system_prompt = await self.run_turn(chat=False)
+        client._refresh_request_prompt.assert_called_once()
+        client._refresh_chat_prompt.assert_not_called()
+        self.assertIn(TURN_17_REQUEST, prompt)
+        self.assertIn(REQUEST_FOLLOW, prompt)
+        self.assertIn(REQUEST_CONTINUATION, prompt)
+        self.assertNotIn(REMOVED_TURN_TAIL, prompt)
+        self.assertEqual(system_prompt, {"type": "preset", "preset": "claude_code", "append": "REQUEST"})
+
+    async def test_chat_turn_drops_work_sentences(self) -> None:
+        client, prompt, system_prompt = await self.run_turn(chat=True)
+        client._refresh_chat_prompt.assert_called_once()
+        client._refresh_request_prompt.assert_not_called()
+        for line in (TURN_17_CHAT, TURN_18, TURN_19):
+            self.assertIn(line, prompt)
+        for banned in ("작업 답변의", REMOVED_TURN_TAIL, "작업 요청"):
+            self.assertNotIn(banned, prompt)
+        self.assertIn("채팅이면 Response control 절의 사용자가 시작한 채팅 기준으로 고른다.", prompt)
+        self.assertIsInstance(system_prompt, str)
+        self.assertEqual(system_prompt, "CHAT")
+
+
+if __name__ == "__main__":
+    unittest.main()

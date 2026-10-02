@@ -1,0 +1,190 @@
+name: Discord Push Notification
+
+on:
+  push:
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send Discord notification
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          REPOSITORY: ${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
+          ACTOR: ${{ github.actor }}
+
+        run: |
+          set -e
+
+          COMMIT_COUNT=$(jq '.commits | length' "$GITHUB_EVENT_PATH")
+          COMPARE_URL=$(jq -r '.compare // empty' "$GITHUB_EVENT_PATH")
+
+          if [ "$COMMIT_COUNT" -eq 0 ]; then
+            echo "전달할 커밋이 없습니다."
+            exit 0
+          fi
+
+          # ─────────────────────────────
+          # 커밋이 1개인 경우
+          # ─────────────────────────────
+
+          if [ "$COMMIT_COUNT" -eq 1 ]; then
+            COMMIT_MESSAGE=$(jq -r '.commits[0].message' "$GITHUB_EVENT_PATH")
+            COMMIT_SUBJECT="${COMMIT_MESSAGE%%$'\n'*}"
+
+            case "$COMMIT_SUBJECT" in
+              feat:*|feat\(*\):*)
+                MESSAGES=(
+                  "새로운 코드가 접수되었습니다. 휴고가 이 소식을 전달드립니다. 이상입니다."
+                  "휴고입니다. 기능이 추가되었습니다. 문제가 생길 수 있는 범위도 함께 넓어졌습니다."
+                  "기능 추가 건이 확인되었습니다. 전부 영어라서 근사한지는 모르겠습니다. 휴고입니다."
+                  "오래 기다리셨습니다. 휴고입니다. 금일 신규 커밋을 확인해주십시오."
+                  "새로운 기능 커밋입니다. 휴고가 놓치지 않고 이렇게 전달드립니다. 칭찬 감사합니다."
+                )
+                ;;
+
+              fix:*|fix\(*\):*)
+                MESSAGES=(
+                  "휴고입니다. 수정 사항이 확인되었습니다. 원인이 무엇이었는지는 굳이 묻지 않겠습니다."
+                  "버그 수정 커밋을 확인했습니다. 휴고가 이 중요사항을 전달드립니다."
+                  "휴고입니다. 문제가 하나 해결된 것으로 보입니다. 일단은 그렇습니다."
+                  "이번에 잘못된 부분이 해결되었습니다. 누가 잘못했는지는 휴고의 담당이 아닙니다."
+                  "휴고입니다. 수정 사항을 깊게 보지는 않았습니다. 서로를 위해서입니다."
+                )
+                ;;
+
+              docs:*|docs\(*\):*)
+                MESSAGES=(
+                  "휴고입니다. 새로운 문서 커밋이 생겼습니다. 변경사항을 꼭 숙지하시기 바랍니다."
+                  "신규 문서 커밋이 왔습니다. 미래의 자신에게 보내는 메시지입니다. 저는 휴고입니다."
+                  "코드가 아닌 문서 작업 변경입니다. 전 서류 작업을 좋아하지 않습니다. 휴고입니다."
+                  "문서 커밋이 도착했습니다. 예상하셨겠지만 제가 전달드립니다. 휴고입니다."
+                  "문서 변경사항이 접수되었습니다. 휴고가 전달드립니다. 읽는 사람이 있기를 바랍니다."
+                )
+                ;;
+
+              chore:*|chore\(*\):*)
+                MESSAGES=(
+                  "잡무성 변경사항이 접수되었습니다. 잡무라는 표현은 공식 분류입니다. 휴고가 전달드립니다."
+                  "휴고입니다. 정리 작업이 반영되었습니다. 아무 일도 없는 상태를 유지하기 위한 일입니다."
+                  "휴고입니다. 주변 정리가 이루어졌습니다. 기능은 그대로입니다. 마음은 조금 편해졌을 수 있습니다."
+                  "다시 뵙겠습니다. 휴고입니다. 이번 변경사항 업무에 참고 바랍니다. 감사합니다."
+                  "새로운 업데이트 커밋입니다. 휴고가 왔다는 뜻이기도 합니다. 네, 반갑습니다."
+                )
+                ;;
+
+              *)
+                MESSAGES=(
+                  "안녕하십니까, 휴고입니다. 새로운 커밋 소식 알려드립니다."
+                  "휴고입니다. 이번 변경사항이 정상적으로 확인되었습니다."
+                  "휴고입니다. 저장소 변경 내역이 확인되어 전달드립니다."
+                  "반갑습니다, 휴고입니다. 커밋이 있으면 다시 찾아뵙겠습니다."
+                  "휴고입니다. 새로운 소식이 왔습니다. 저도 왔습니다."
+                )
+                ;;
+            esac
+
+          # ─────────────────────────────
+          # 커밋이 여러 개인 경우
+          # ─────────────────────────────
+
+          else
+            MESSAGES=(
+              "휴고입니다. 총 ${COMMIT_COUNT}건의 커밋이 한꺼번에 접수되었습니다. 그다지 무겁지 않았습니다."
+              "휴고입니다. 변경사항 총 ${COMMIT_COUNT}건을 전달드립니다. 가장 최신 커밋만 드리겠습니다."
+              "커밋이 ${COMMIT_COUNT}건이 도착했습니다. 휴고가 일괄 처리했습니다."
+              "휴고입니다. ${COMMIT_COUNT}건을 가져왔습니다. 고생했다는 말씀 안하셔도 됩니다."
+              "변경사항 ${COMMIT_COUNT}건이 확인되었습니다. 너무 많이 드리면 곤란하시니 하나만 드립니다. 휴고입니다."
+              "휴고입니다. 커밋 ${COMMIT_COUNT}건을 확인했습니다. 한 건씩 보내면 피곤하니 묶어서 전달드립니다."
+            )
+          fi
+
+          # ─────────────────────────────
+          # 랜덤 대사 선택
+          # ─────────────────────────────
+
+          CONTENT=$(printf '%s\n' "${MESSAGES[@]}" | shuf -n 1)
+
+          # ─────────────────────────────
+          # Push 안 최신 커밋 1개 생성(최대 길이 감안)
+          # ─────────────────────────────
+
+          DESCRIPTION=$(jq -r '
+            def commit_type:
+              if   test("^feat(\\([^)]*\\))?!?:")  then "FEAT"
+              elif test("^fix(\\([^)]*\\))?!?:")   then "FIX"
+              elif test("^docs(\\([^)]*\\))?!?:")  then "DOCS"
+              elif test("^chore(\\([^)]*\\))?!?:") then "CHORE"
+              else "COMMIT"
+              end;
+
+            .commits[-1]
+            | (.message | split("\n")[0] | rtrimstr("\r")) as $subject
+            | "[`\(.id[0:7])`](\(.url)) **\($subject | commit_type)** \($subject)"
+          ' "$GITHUB_EVENT_PATH")
+
+          echo "Commit count: $COMMIT_COUNT"
+          echo "Selected message: $CONTENT"
+          echo "$DESCRIPTION"
+
+          # ─────────────────────────────
+          # Discord Payload
+          # ─────────────────────────────
+
+          PAYLOAD=$(jq -n \
+            --arg username "휴고" \
+            --arg content "$CONTENT" \
+            --arg repo "$REPOSITORY" \
+            --arg branch "$BRANCH" \
+            --arg actor "$ACTOR" \
+            --arg description "$DESCRIPTION" \
+            --arg count "$COMMIT_COUNT" \
+            --arg url "$COMPARE_URL" \
+            '{
+              username: $username,
+              content: $content,
+              embeds: [
+                (
+                  {
+                    title: $repo,
+                    description: $description,
+                    fields: [
+                      {
+                        name: "Branch",
+                        value: $branch,
+                        inline: true
+                      },
+                      {
+                        name: "Pushed by",
+                        value: $actor,
+                        inline: true
+                      },
+                      {
+                        name: "Commits",
+                        value: $count,
+                        inline: true
+                      }
+                    ]
+                  }
+                  +
+                  (
+                    if $url != "" then
+                      { url: $url }
+                    else
+                      {}
+                    end
+                  )
+                )
+              ]
+            }')
+
+          # ─────────────────────────────
+          # Discord 전송
+          # ─────────────────────────────
+
+          curl -fSs \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD" \
+            "$DISCORD_WEBHOOK_URL"

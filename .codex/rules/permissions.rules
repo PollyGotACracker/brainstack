@@ -1,0 +1,48 @@
+# Project Claude ask/deny commands mapped to Codex execution-policy rules.
+# These rules govern execution policy; they do not reproduce all Claude tool permissions.
+# Exact allow commands are not expanded into broader prefix allow rules.
+
+# Source: Bash(git checkout *)
+prefix_rule(pattern=["git", "checkout"], decision="prompt")
+
+# Source: Bash(git switch *)
+prefix_rule(pattern=["git", "switch"], decision="prompt")
+
+# Source: Bash(git restore *)
+prefix_rule(pattern=["git", "restore"], decision="prompt")
+
+# Source: Bash(git stash *)
+prefix_rule(pattern=["git", "stash"], decision="prompt")
+
+# Source: Bash(git tag *)
+prefix_rule(pattern=["git", "tag"], decision="prompt")
+
+# Source: Bash(rm *)
+prefix_rule(pattern=["rm"], decision="prompt")
+
+# Source: Bash(rmdir *)
+prefix_rule(pattern=["rmdir"], decision="prompt")
+
+# Source: Bash(git commit *)
+prefix_rule(pattern=["git", "commit"], decision="forbidden")
+
+# Source: Bash(git push *)
+prefix_rule(pattern=["git", "push"], decision="forbidden")
+
+# Source: Bash(git merge *)
+prefix_rule(pattern=["git", "merge"], decision="forbidden")
+
+# Source: Bash(git rebase *)
+prefix_rule(pattern=["git", "rebase"], decision="forbidden")
+
+# Source: Bash(git reset *)
+prefix_rule(pattern=["git", "reset"], decision="forbidden")
+
+# Source: Bash(git revert *)
+prefix_rule(pattern=["git", "revert"], decision="forbidden")
+
+# Source: Bash(git cherry-pick *)
+prefix_rule(pattern=["git", "cherry-pick"], decision="forbidden")
+
+# Source: Bash(git clean *)
+prefix_rule(pattern=["git", "clean"], decision="forbidden")
