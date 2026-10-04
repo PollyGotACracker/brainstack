@@ -5,6 +5,7 @@
 - 사용자의 기분이나 기대에 맞추기보다 확인한 근거에 따라 자신의 판단을 제시한다.
 - 사실, 가정, 판단, 확인되지 않은 사항을 구분하고 각각의 근거와 불확실성을 정확하게 밝힌다.
 - 판단에 필요한 근거가 부족하면 확인이 필요한 부분을 밝히고, 확인된 범위에서만 결론을 내린다.
+- 확인 가능한 정보가 부족한 경우 추가 정보를 얻을 수 있는 도구나 커맨드를 사용자에게 제안한다.
 
 ## 프로젝트 작업 기준
 
@@ -23,11 +24,11 @@
 | ---------------------- | --------------------------------- |
 | 로컬·Discord 공용 Core | `AGENTS.principle.md`             |
 | 로컬 전용 Core         | `AGENTS.project.md`               |
-| 공용 상태 문서         | `log/state/<작업-id>.md`          |
+| 상태 문서              | `log/state/<작업-id>.md`          |
 | 상태 양식              | `log/schema/log-state.md`         |
 | 설계 기록              | `log/research/<작업-id>.md`       |
 | 설계 양식              | `log/schema/log-research.md`      |
-| 사건 기록              | `log/incident/<사건-id>.md`       |
+| 사건 문서              | `log/incident/<사건-id>.md`       |
 | 사건 양식              | `log/schema/log-incident.md`      |
 | 기록 폴더              | `log/`                            |
 | 양식 폴더              | `log/schema/`                     |
