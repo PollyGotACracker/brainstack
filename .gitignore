@@ -1,7 +1,5 @@
-# Config / Settings
+# Config
 config.json
-settings.json
-hooks.json
 
 # Config folders in archive/
 archive/.*

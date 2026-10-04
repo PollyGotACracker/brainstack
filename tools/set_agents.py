@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+"""프로젝트의 에이전트 원본 폴더를 사용자 전역 경로에 연결한다.
+
+check는 연결 상태만 확인한다.
+link는 비어 있는 경로에 연결을 만든다.
+기존 파일, 실제 폴더, 다른 원본을 가리키는 링크는 변경하지 않는다.
+"""
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "set_skills"))
+from sub_symlink import link_target, make_link
+
+ROOT = Path(__file__).resolve().parent.parent
+LINKS = [
+    ("Claude Code", ROOT / ".claude" / "agents", Path.home() / ".claude" / "agents"),
+    ("Codex", ROOT / ".codex" / "agents", Path.home() / ".codex" / "agents"),
+]
+
+
+def run(mode: str) -> int:
+    problems = 0
+    for label, source, destination in LINKS:
+        print(f"[{label}] {destination}")
+        if not source.is_dir():
+            print(f"  원본 없음: {source}")
+            problems += 1
+            continue
+
+        target = link_target(destination)
+        if target is not None and target.resolve() == source.resolve():
+            print(f"  연결됨: {source}")
+            continue
+        if target is not None or destination.exists():
+            print("  충돌: 기존 항목을 유지함")
+            problems += 1
+            continue
+        if mode == "check":
+            print(f"  미연결: {source}")
+            problems += 1
+            continue
+
+        try:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            kind = make_link(source, destination)
+        except OSError as exc:
+            print(f"  연결 실패: {exc}")
+            problems += 1
+        else:
+            print(f"  생성 ({kind}): {source}")
+
+    return 1 if problems else 0
+
+
+def main() -> int:
+    if len(sys.argv) != 2 or sys.argv[1] not in {"check", "link"}:
+        print("사용법: python tools/set_agents.py check|link", file=sys.stderr)
+        return 2
+    return run(sys.argv[1])
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
