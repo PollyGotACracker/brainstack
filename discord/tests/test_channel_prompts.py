@@ -29,7 +29,7 @@ REMINDERS_CONFIG = config_module.RemindersConfig(
 )
 TURN_17_REQUEST = "작업 답변의 사실 주장은 이번 턴에 직접 연 공식 문서 원문이나 공식 URL을 주장 가까이에 붙인다."
 TURN_17_CHAT = "답변의 사실 주장은 이번 턴에 직접 연 공식 문서 원문이나 공식 URL을 주장 가까이에 붙인다."
-TURN_18 = "도구로 원문을 연 주장은 검증 완료로 표현하고, 원문 확인이 실패한 주장은 `미확인`으로 표시한다."
+TURN_18 = "작업 답변에서 원문 확인이 실패한 주장은 `미확인`으로 표시한다."
 TURN_19 = "사용자가 재확인을 요청하면 이번 턴에 원문을 다시 열어 확인한다."
 # 모든 채널에서 지운 TURN.md 20행의 뒷부분.
 REMOVED_TURN_TAIL = "진단과 함께 직접 답과 사용자가 취할 수 있는 결론을 포함한다."
@@ -248,6 +248,7 @@ class TurnPromptTests(unittest.IsolatedAsyncioTestCase):
         client._refresh_request_prompt.assert_called_once()
         client._refresh_chat_prompt.assert_not_called()
         self.assertIn(TURN_17_REQUEST, prompt)
+        self.assertIn(TURN_18, prompt)
         self.assertIn(REQUEST_FOLLOW, prompt)
         self.assertIn(REQUEST_CONTINUATION, prompt)
         self.assertNotIn(REMOVED_TURN_TAIL, prompt)
@@ -257,9 +258,9 @@ class TurnPromptTests(unittest.IsolatedAsyncioTestCase):
         client, prompt, system_prompt = await self.run_turn(chat=True)
         client._refresh_chat_prompt.assert_called_once()
         client._refresh_request_prompt.assert_not_called()
-        for line in (TURN_17_CHAT, TURN_18, TURN_19):
+        for line in (TURN_17_CHAT, TURN_19):
             self.assertIn(line, prompt)
-        for banned in ("작업 답변의", REMOVED_TURN_TAIL, "작업 요청"):
+        for banned in ("작업 답변의", REMOVED_TURN_TAIL, "작업 요청", "검증 완료", "`미확인`"):
             self.assertNotIn(banned, prompt)
         self.assertIn("채팅이면 Response control 절의 사용자가 시작한 채팅 기준으로 고른다.", prompt)
         self.assertIsInstance(system_prompt, str)
