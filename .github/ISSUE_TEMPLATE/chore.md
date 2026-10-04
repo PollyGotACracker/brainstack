@@ -1,6 +1,6 @@
 ---
 name: Chore
-about: 저장소 설정, 구조 및 운영 환경 정비
+about: 저장소 설정, 구조, 지침 및 운영 환경 정비
 title: "[CHORE] "
 labels: chore
 assignees: ""

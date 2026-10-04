@@ -1,6 +1,6 @@
 ---
 name: Docs
-about: 지식, 규칙 및 운영 문서 추가 또는 수정
+about: 지식 저장소 문서 추가 또는 수정
 title: "[DOCS] "
 labels: docs
 assignees: ""

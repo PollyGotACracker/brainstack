@@ -2,12 +2,14 @@
 
 ## 작업 절차
 
+- 파일을 생성하기 전, 원본 내용에 저작권 침해 요소가 있는 경우 사용자에게 알린다.
+
 ### 경로 기준
 
-- `raw/`, `wiki/`, `schema/`, 위키링크의 기준은 이 문서가 있는 `archive/`이다.
-- 저장소 루트 기준 파일 경로에는 `archive/` 접두를 붙인다.
-  - 위키링크 표기 유지
-- 저장소 루트를 명시한 지침 및 `.github/` 템플릿 경로는 저장소 루트를 기준으로 한다.
+- `raw/`, `wiki/`, `schema/`, 위키링크는 `archive/`를 기준으로 해석한다.
+- 저장소 루트 기준으로 파일 경로를 작성하면 `archive/`를 붙인다.  
+  이때 위키링크는 `[[...]]` 형식을 유지한다.
+- 저장소 루트를 명시한 지침 및 `.github/` 템플릿 경로는 저장소 루트를 기준으로 해석한다.
 
 ### 처리 순서
 
@@ -18,13 +20,12 @@
 
 ### 구성
 
-- `raw/`에는 수집 자료의 원본을 그대로 보존한다.
-- `wiki/entities/`에는 고유명사 1개당 1페이지를 배치한다.
-- `wiki/concepts/`에는 개념·방법론·원리 1개당 1페이지를 배치한다.
-- `wiki/sources/`에는 `raw/` 파일 1개당 요약 1페이지를 배치한다.
-  생성 주체는 ingest이다.
-- `wiki/INDEX.md`는 전체 목차이다.
-- `schema/`에는 ingest·query·lint 절차를 배치한다.
+- `raw/`: 수집 자료의 원본
+- `wiki/entities/`: 고유명사 1개당 1페이지를 배치
+- `wiki/concepts/`: 개념·방법론·원리 1개당 1페이지를 배치
+- `wiki/sources/`: `raw/` 파일 1개당 요약 1페이지를 배치, 생성 주체는 ingest
+- `wiki/INDEX.md`: 전체 목차
+- `schema/`: ingest·query·lint 절차를 배치
 
 ### 배치 기준
 
@@ -32,11 +33,7 @@
 
 ## 문서 서식
 
-- 같은 종류의 기존 문서 서식을 확인해 우선 적용한다.
-- 본문은 글머리 기호 목록으로 작성한다.
-- 목록 들여쓰기는 탭 1개를 한 단계로 사용한다.
-  예외로 YAML 프론트매터는 공백을 사용한다.
-- 기존 문서에 없는 서식에는 루트 `AGENTS.md`의 `서식 및 문서 작성` 절을 적용한다.
+- `AGENTS.principle.md`의 `서식 및 문서 작성` 절을 적용한다.
 
 ## 파일명
 
@@ -44,7 +41,6 @@
 - 페이지 파일명은 영문 소문자·숫자·하이픈만으로 kebab-case로 구성한다.
 - 대주제는 파일명의 첫 단어이며 파일명에는 대상을 구별하는 핵심 단어만 포함한다.
   같은 세부 주제의 페이지는 대주제의 이름순 정렬에서 함께 배치한다.
-- 원문 제목 전체는 프론트매터 `title`에, 한글 이름은 `title`과 `aliases`에 기록한다.
 
 ```text
 wiki/entities/ai-harness-codex.md
@@ -57,6 +53,20 @@ wiki/sources/ai-harness-long-running-agents.md
 
 ## 프론트매터
 
+### raw
+
+```yaml
+---
+title: 제목
+date: YYYY-MM-DD
+---
+```
+
+- `title`: 문서 제목
+- `date`: 문서 마지막 편집 시각
+
+### wiki
+
 `wiki/INDEX.md`를 제외한 모든 위키 페이지에는 아래 프론트매터를 포함한다.
 
 ```yaml
@@ -67,15 +77,20 @@ date: YYYY-MM-DD
 tags: [wiki, 분류]
 description: ""
 draft: false
-related: [
-    "[[wiki/concepts/ai-harness-engineering]]",
-    "[[wiki/entities/ai-harness-codex]]",
-  ] # 선택
+related: # 선택
+  - "[[wiki/concepts/ai-harness-engineering]]"
+  - "[[wiki/entities/ai-harness-codex]]"
 ---
 ```
 
-- 페이지 작성·수정 시 `date`를 마지막 수정 날짜로 갱신한다.
-- 선택 항목 `related` 사용 시 위키링크를 따옴표로 감싼다.
+- `aliases`:문서 제목 외의 별칭
+- `title`: 문서 제목
+- `date`: 문서 마지막 편집 시각
+- `tags`: 문서 분류 태그 목록
+- `description`: 문서의 짧은 설명
+- `draft`: 초안 여부
+- `related`(선택 항목): 관련 문서 링크 목록  
+  위키링크를 따옴표로 감싸고 글머리 기호를 적용하며, 공백 2개를 사용한다.
   목적은 Obsidian의 YAML 인식이다.
 
 ## 링크
@@ -97,8 +112,8 @@ related: [
 - 코드 블록 안의 원문 URL은 원문 보존을 위해 변환에서 제외한다.
 
 ```markdown
-[TypeSafe](https://typesafe.ai/)
-[fivetaku/awesome-jev-study](https://github.com/fivetaku/awesome-jev-study)
+- [TypeSafe](https://typesafe.ai/)
+- [PollyGotACracker/brainstack](https://github.com/PollyGotACracker/brainstack)
 ```
 
 ### 표 안 링크
@@ -116,6 +131,7 @@ related: [
 
 ## Commit
 
+- `.github/`의 템플릿 파일을 참고한다.
 - 커밋 단위는 승인된 변경 세트이다.
 - 메시지 형식은 `<타입>: <제목>`이다.
 - 허용 타입은 `feat`, `fix`, `chore`, `docs`이다.
