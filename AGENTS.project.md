@@ -24,19 +24,21 @@
 | ---------------------- | --------------------------------- |
 | 로컬·Discord 공용 Core | `AGENTS.principle.md`             |
 | 로컬 전용 Core         | `AGENTS.project.md`               |
-| 상태 문서              | `log/state/<작업-id>.md`          |
-| 상태 양식              | `log/schema/log-state.md`         |
-| 설계 기록              | `log/research/<작업-id>.md`       |
-| 설계 양식              | `log/schema/log-research.md`      |
-| 사건 문서              | `log/incident/<사건-id>.md`       |
-| 사건 양식              | `log/schema/log-incident.md`      |
-| 기록 폴더              | `log/`                            |
-| 양식 폴더              | `log/schema/`                     |
 | 역할 지침              | `.claude/agents/<role>/AGENTS.md` |
-| Skill 원본             | `shared/skills/<name>/SKILL.md`   |
+| 로그 폴더              | `log/`                            |
+| 로그 양식 폴더         | `log/schema/`                     |
+| 상태 양식              | `log/schema/log-state.md`         |
+| 설계 양식              | `log/schema/log-research.md`      |
+| 사건 양식              | `log/schema/log-incident.md`      |
+| 상태 문서              | `log/state/<작업-id>.md`          |
+| 설계 문서              | `log/research/<설계-id>.md`       |
+| 사건 문서              | `log/incident/<사건-id>.md`       |
 | 지식 저장소            | `archive/`                        |
-| 지침 검사 도구         | `tools/check-doc-rule.py`         |
-| Skill 설치 도구        | `tools/skills.py`                 |
+| Skill 원본             | `shared/skills/<name>/SKILL.md`   |
+| Hooks 설치 도구        | `tools/set_hooks.py`              |
+| Skill 연결 도구        | `tools/set_skills.py`             |
+| Agents 연결 도구       | `tools/set_agents.py`             |
+| 지침 검사 도구         | `tools/check_doc_rule.py`         |
 
 ## 작업 사항 표시
 
@@ -68,9 +70,9 @@
 ## 하위 에이전트 입력
 
 - 하위 에이전트에는 `에이전트 간 전달` 절에 정한 입력만 전달한다.
-- 상태 기록 대상 작업의 사용자 요구사항은 요약하여 공용 상태 문서에 한 번 기록한다.
+- 상태 기록 대상 작업의 사용자 요구사항은 요약하여 상태 문서에 한 번 기록한다.
   정확한 문구가 필요하면 문서 경로·관련 항목과 필요한 발췌만 전달한다.
-- worker·reviewer 호출 입력은 공용 상태 문서 경로와 항목 식별자로 한정한다.
+- worker·reviewer 호출 입력은 상태 문서 경로와 항목 식별자로 한정한다.
   입력 경계는 `에이전트 간 전달` 절의 독립 입력 기준을 적용한다.
 - 반증 입력에는 반증할 주장·증거·출처만 전달한다.
   다른 에이전트의 전체 대화·추론·도구 로그는 반증 입력에서 제외한다.
@@ -89,19 +91,19 @@
 4. worker·reviewer의 후속 요청은 director에게 반환한다.
    다음 역할은 director가 호출한다.
 
-| 전달                | 방향                        | 입력·내용                                                                                            |
-| ------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------- |
-| 외부 조사 요청      | director → planner          | 착수 승인된 조사 질문·판정 기준·확정 결정·제외 범위, 원문 발췌(`파일:행`·기준 커밋)                  |
-| 반증 요청           | director → planner          | 반증할 주장, director 확인 범위, 원문 발췌(`파일:행`·기준 커밋), 판정 기준                           |
-| 외부 조사 결과 반환 | planner → director          | 결론, 사실과 추론의 구분, 출처, 조사 범위, 제약·위험                                                 |
-| 반증 결과 반환      | planner → director          | 주장별 지지·반증·미확인과 근거·출처, 발견한 충돌·누락, 열람 범위                                     |
-| 기록 요청           | director → documenter       | 기록 대상과 기록할 내용                                                                              |
-| 구현 요청           | director → worker           | 공용 상태 문서 경로와 요구사항·승인 범위·대상·완료 기준·검증 명령·알려진 위험 항목 식별자            |
-| 구현 결과 반환      | worker → director           | 결과물 경로, 구현 근거, 자기 대조 결과                                                               |
-| 검수 요청           | director → reviewer         | 공용 상태 문서 경로와 요구사항·대상·원본·기준 자료·완료 기준·검증 명령·알려진 위험 항목 식별자       |
-| 검수 결과 반환      | reviewer → director         | 검수 목록 전체, 항목별 판정과 확인 위치·관찰 근거, 위반 항목                                         |
-| 재작업 요청         | director → worker           | 공용 상태 문서 경로와 director가 독립 확인해 확정한 위반 위치·기대 결과·재작업 범위·횟수 항목 식별자 |
-| 확정 사항 변경 필요 | worker, reviewer → director | 변경이 필요한 항목과 근거                                                                            |
+| 전달                | 방향                        | 입력·내용                                                                                       |
+| ------------------- | --------------------------- | ----------------------------------------------------------------------------------------------- |
+| 외부 조사 요청      | director → planner          | 착수 승인된 조사 질문·판정 기준·확정 결정·제외 범위, 원문 발췌(`파일:행`·기준 커밋)             |
+| 반증 요청           | director → planner          | 반증할 주장, director 확인 범위, 원문 발췌(`파일:행`·기준 커밋), 판정 기준                      |
+| 외부 조사 결과 반환 | planner → director          | 결론, 사실과 추론의 구분, 출처, 조사 범위, 제약·위험                                            |
+| 반증 결과 반환      | planner → director          | 주장별 지지·반증·미확인과 근거·출처, 발견한 충돌·누락, 열람 범위                                |
+| 기록 요청           | director → documenter       | 기록 대상과 기록할 내용                                                                         |
+| 구현 요청           | director → worker           | 상태 문서 경로와 요구사항·승인 범위·대상·완료 기준·검증 명령·알려진 위험 항목 식별자            |
+| 구현 결과 반환      | worker → director           | 결과물 경로, 구현 근거, 자기 대조 결과                                                          |
+| 검수 요청           | director → reviewer         | 상태 문서 경로와 요구사항·대상·원본·기준 자료·완료 기준·검증 명령·알려진 위험 항목 식별자       |
+| 검수 결과 반환      | reviewer → director         | 검수 목록 전체, 항목별 판정과 확인 위치·관찰 근거, 위반 항목                                    |
+| 재작업 요청         | director → worker           | 상태 문서 경로와 director가 독립 확인해 확정한 위반 위치·기대 결과·재작업 범위·횟수 항목 식별자 |
+| 확정 사항 변경 필요 | worker, reviewer → director | 변경이 필요한 항목과 근거                                                                       |
 
 ## 재작업 중단
 
