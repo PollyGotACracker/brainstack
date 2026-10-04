@@ -93,36 +93,32 @@ jobs:
           else
             MESSAGES=(
               "휴고입니다. 총 ${COMMIT_COUNT}건의 커밋이 한꺼번에 접수되었습니다. 그다지 무겁지 않았습니다."
-              "휴고입니다. 변경사항 총 ${COMMIT_COUNT}건을 전달드립니다. 가장 최신 커밋만 드리겠습니다."
+              "변경사항 총 ${COMMIT_COUNT}건을 전달드립니다. 휴고는 고중량 운동을 좋아하지 않습니다."
               "커밋이 ${COMMIT_COUNT}건이 도착했습니다. 휴고가 일괄 처리했습니다."
               "휴고입니다. ${COMMIT_COUNT}건을 가져왔습니다. 고생했다는 말씀 안하셔도 됩니다."
-              "변경사항 ${COMMIT_COUNT}건이 확인되었습니다. 너무 많이 드리면 곤란하시니 하나만 드립니다. 휴고입니다."
+              "변경사항 ${COMMIT_COUNT}건이 확인되었습니다. 너무 많이 드리면 곤란하니 휴고가 단 한 번만 드립니다."
               "휴고입니다. 커밋 ${COMMIT_COUNT}건을 확인했습니다. 한 건씩 보내면 피곤하니 묶어서 전달드립니다."
             )
           fi
 
           # ─────────────────────────────
-          # 랜덤 대사 선택
+          # 랜덤 대사 선택 (여러 건이면 최신 커밋 안내 추가)
           # ─────────────────────────────
 
           CONTENT=$(printf '%s\n' "${MESSAGES[@]}" | shuf -n 1)
 
+          if [ "$COMMIT_COUNT" -gt 1 ]; then
+            CONTENT="${CONTENT}"$'\n'"아래 커밋은 이번에 받은 것들 중 가장 최신 커밋입니다."
+          fi
+
           # ─────────────────────────────
-          # Push 안 최신 커밋 1개 생성(최대 길이 감안)
+          # 임베드 설명: 최신 커밋 1건의 해시 링크와 제목
           # ─────────────────────────────
 
           DESCRIPTION=$(jq -r '
-            def commit_type:
-              if   test("^feat(\\([^)]*\\))?!?:")  then "FEAT"
-              elif test("^fix(\\([^)]*\\))?!?:")   then "FIX"
-              elif test("^docs(\\([^)]*\\))?!?:")  then "DOCS"
-              elif test("^chore(\\([^)]*\\))?!?:") then "CHORE"
-              else "COMMIT"
-              end;
-
             .commits[-1]
             | (.message | split("\n")[0] | rtrimstr("\r")) as $subject
-            | "[`\(.id[0:7])`](\(.url)) **\($subject | commit_type)** \($subject)"
+            | "[`\(.id[0:7])`](\(.url)) \($subject)"
           ' "$GITHUB_EVENT_PATH")
 
           echo "Commit count: $COMMIT_COUNT"
