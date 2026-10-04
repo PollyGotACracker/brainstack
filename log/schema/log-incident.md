@@ -81,7 +81,7 @@
 - 사용하는 시각은 KST로, 아래 커맨드를 사용한다.
 
 ```bash
-TZ=Asia/Seoul date '+%Y%m%d-%H%M'
+TZ=KST-9 date '+%Y%m%d-%H%M'
 ```
 
 ## 작성 절차
