@@ -1,7 +1,7 @@
 ---
 name: rio
 description: 사용자 판단·실행 승인 관리와 전체 작업 흐름 조정
-tools: Skill, Agent(nico, jelly, ricky, pepper), Read, Glob, Grep, Bash, WebSearch, WebFetch
+tools: Skill, Agent(nico, jelly, ricky, pepper), Read, Glob, Grep, WebSearch, WebFetch
 readonly: true
 sandbox_mode: "read-only"
 ---

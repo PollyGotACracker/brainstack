@@ -153,11 +153,10 @@ class ChatResponseDeliveryTests(unittest.IsolatedAsyncioTestCase):
     async def test_user_request_scope_and_unfinished_answers(self) -> None:
         _, _, _, prompt = await self.run_turn("본문\n[[next:stop]]", reaction_trigger=False)
         # CHAT-06-REBASE: 작업 요청은 현재 요청과 교정을 따르고, 채팅은 캐릭터 반응으로 이어가는 주입 계약을 확인한다.
-        self.assertIn("가장 최근 사용자 발언에 답한다", prompt)
+        self.assertIn("현재 대화의 주제를 먼저 확인하고", prompt)
         self.assertIn("질문·요청·교정이 있으면 그 내용을 기준으로 답한다", prompt)
         self.assertIn("작업 요청에서는 사용자 의도에 맞는 직전 발언만 이어받는다", prompt)
         self.assertIn("질문이나 요청이 없는 채팅이면 화제에 대한 캐릭터의 반응으로 답한다", prompt)
-        self.assertIn("채팅에서는 직전 캐릭터의 발언에 반응하거나 덧붙인다", prompt)
         self.assertNotIn("담당 역할 연결", prompt)
         self.assertNotIn("질문, 요청, 교정을 기준으로 말한다", prompt)
         self.assertNotIn("단순 질문을 별도 조사·검색·요약 과제로 확대하지 않는다", prompt)
@@ -169,8 +168,7 @@ class ChatResponseDeliveryTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("사용자의 답을 기다리", prompt)
         self.assertNotIn("최소", prompt)
         runtime_prompt = (DISCORD_ROOT / "prompts" / "RUNTIME.md").read_text(encoding="utf-8")
-        self.assertIn("작업 요청에서는 가장 최근 사용자 질문·요청·교정을 기준으로 답한다", runtime_prompt)
-        self.assertIn("기존 논의 맥락은 그 발언과 관련되는 범위에서 적용한다", runtime_prompt)
+        self.assertIn("현재 대화의 주제를 먼저 확인하고 그 주제를 기준으로 답한다", runtime_prompt)
         self.assertIn("작업 요청에서는 사용자가 꺼낸 주제를 기준으로 답한다", runtime_prompt)
         self.assertIn("채팅에서는 대화 소재로 새 화제를 꺼내도 된다", runtime_prompt)
         self.assertIn("사용자가 논점 이탈을 지적하면 교정된 질문에 바로 답한다", runtime_prompt)
