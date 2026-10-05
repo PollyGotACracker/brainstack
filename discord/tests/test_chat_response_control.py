@@ -28,14 +28,27 @@ class ChatResponseControlTests(unittest.TestCase):
             ("  본문\r\n[[REACT: 👍 ]]\r\n[[NEXT:RIO]]\r\n", ("본문", "rio", "👍")),
             ("[[next:stop]]", ("", "stop", None)),
             ("[[react:<:custom:123>]]\n[[next:rio]]", ("", "rio", "<:custom:123>")),
+            # 마지막 next 줄이 빠진 응답은 전체를 본문으로 보고 stop으로 끝낸다.
+            ("", ("", "stop", None)),
+            ("본문", ("본문", "stop", None)),
         ]
         for response, expected in cases:
             with self.subTest(response=response):
                 self.assertEqual(prompts_module.parse_chat_result(response), expected)
 
+    def test_wait_and_react_without_next(self) -> None:
+        cases = [
+            ("본문\n[[wait:user]]", ("본문", "stop", None, True)),
+            ("본문\n[[react:👍]]", ("본문", "stop", "👍", False)),
+            ("본문\n[[react:👍]]\n[[wait:user]]", ("본문", "stop", "👍", True)),
+            ("[[react:👍]]", ("", "stop", "👍", False)),
+        ]
+        for response, expected in cases:
+            with self.subTest(response=response):
+                self.assertEqual(prompts_module.parse_chat_controls(response), expected)
+
     def test_invalid_responses(self) -> None:
         cases = [
-            "", "본문", "[[react:👍]]",
             "[[next:rio]]\n[[next:stop]]",
             "[[next:rio]]\n본문",
             "본문 [[next:stop]]",
@@ -122,7 +135,7 @@ class ChatResponseDeliveryTests(unittest.IsolatedAsyncioTestCase):
     async def test_invalid_control_never_reaches_discord(self) -> None:
         for response in (
             "본문\n[[next:rio]]\n[[next:stop]]",
-            "[[react:👍]]", "[[react:👍]]\n본문\n[[next:stop]]",
+            "[[react:👍]]\n본문\n[[next:stop]]",
         ):
             with self.subTest(response=response):
                 next_name, channel, runtime, _ = await self.run_turn(response)
@@ -150,34 +163,46 @@ class ChatResponseDeliveryTests(unittest.IsolatedAsyncioTestCase):
         channel.get_partial_message.return_value.add_reaction.assert_awaited_once_with("👍")
         self.assertNotIn("[[", runtime.append_chat.call_args.args[2])
 
+    async def test_body_without_next_is_sent_and_stops(self) -> None:
+        next_name, channel, runtime, _ = await self.run_turn("본문", reaction_trigger=False)
+        self.assertEqual(next_name, "stop")
+        channel.send.assert_awaited_once_with("본문")
+        runtime.append_chat.assert_called_once()
+
     async def test_user_request_scope_and_unfinished_answers(self) -> None:
         _, _, _, prompt = await self.run_turn("본문\n[[next:stop]]", reaction_trigger=False)
-        # CHAT-06-REBASE: 작업 요청은 현재 요청과 교정을 따르고, 채팅은 캐릭터 반응으로 이어가는 주입 계약을 확인한다.
-        self.assertIn("현재 대화의 주제를 먼저 확인하고", prompt)
-        self.assertIn("질문·요청·교정이 있으면 그 내용을 기준으로 답한다", prompt)
-        self.assertIn("작업 요청에서는 사용자 의도에 맞는 직전 발언만 이어받는다", prompt)
-        self.assertIn("질문이나 요청이 없는 채팅이면 화제에 대한 캐릭터의 반응으로 답한다", prompt)
+        # 턴 지시문과 다음 화자 기준 문장은 프롬프트에서 제거됐다.
+        for removed in (
+            "현재 대화의 주제를 먼저 확인하고",
+            "질문·요청·교정이 있으면 그 내용을 기준으로 답한다",
+            "작업 요청에서는 사용자 의도에 맞는 직전 발언만 이어받는다",
+            "질문이나 요청이 없는 채팅이면 화제에 대한 캐릭터의 반응으로 답한다",
+            "작업 요청이면 현재 요청에서 답할 내용이나 응답 차례가 남은 캐릭터를 고른다",
+            "작업 요청에서 이번 발언이 다른 캐릭터의 주장을 반박하거나 정정했으면 그 캐릭터를 고른다",
+            "채팅이면 Response control 절의 사용자가 시작한 채팅 기준으로 고른다",
+            "캐릭터가 사용자에게 질문하거나 확인을 요청하면 stop을 고른다",
+        ):
+            self.assertNotIn(removed, prompt)
         self.assertNotIn("담당 역할 연결", prompt)
         self.assertNotIn("질문, 요청, 교정을 기준으로 말한다", prompt)
         self.assertNotIn("단순 질문을 별도 조사·검색·요약 과제로 확대하지 않는다", prompt)
-        self.assertIn("작업 요청이면 현재 요청에서 답할 내용이나 응답 차례가 남은 캐릭터를 고른다", prompt)
-        self.assertIn("작업 요청에서 이번 발언이 다른 캐릭터의 주장을 반박하거나 정정했으면 그 캐릭터를 고른다", prompt)
-        self.assertIn("채팅이면 Response control 절의 사용자가 시작한 채팅 기준으로 고른다", prompt)
-        self.assertIn("캐릭터가 사용자에게 질문하거나 확인을 요청하면 stop을 고른다", prompt)
         self.assertNotIn("마무리됐", prompt)
         self.assertNotIn("사용자의 답을 기다리", prompt)
         self.assertNotIn("최소", prompt)
         runtime_prompt = (DISCORD_ROOT / "prompts" / "RUNTIME.md").read_text(encoding="utf-8")
-        self.assertIn("현재 대화의 주제를 먼저 확인하고 그 주제를 기준으로 답한다", runtime_prompt)
-        self.assertIn("작업 요청에서는 사용자가 꺼낸 주제를 기준으로 답한다", runtime_prompt)
-        self.assertIn("채팅에서는 대화 소재로 새 화제를 꺼내도 된다", runtime_prompt)
-        self.assertIn("사용자가 논점 이탈을 지적하면 교정된 질문에 바로 답한다", runtime_prompt)
+        for removed in (
+            "현재 대화의 주제를 먼저 확인하고 그 주제를 기준으로 답한다",
+            "작업 요청에서는 사용자가 꺼낸 주제를 기준으로 답한다",
+            "채팅에서는 대화 소재로 새 화제를 꺼내도 된다",
+            "사용자가 논점 이탈을 지적하면 교정된 질문에 바로 답한다",
+            "다음 캐릭터는 작업 요청에서 답할 내용이나 지정된 응답 차례가 남으면 이어 말한다",
+            "채팅의 이어 말하기는 `Response control` 절의 채팅 기준을 따른다",
+            "사용자가 시작한 작업 요청에서 다음 화자는 남은 답변이나 지정된 응답 차례를 맡을 캐릭터로 고른다",
+            "사용자가 시작한 채팅에서 다음 화자는",
+            "캐릭터가 사용자에게 질문하거나 확인을 요청하면 `[[next:stop]]`을 출력한다",
+        ):
+            self.assertNotIn(removed, runtime_prompt)
         self.assertNotIn("단순 질문을 별도 조사·검색·요약 과제로 확대하지 않는다", runtime_prompt)
-        self.assertIn("다음 캐릭터는 작업 요청에서 답할 내용이나 지정된 응답 차례가 남으면 이어 말한다", runtime_prompt)
-        self.assertIn("채팅의 이어 말하기는 `Response control` 절의 채팅 기준을 따른다", runtime_prompt)
-        self.assertIn("사용자가 시작한 작업 요청에서 다음 화자는 남은 답변이나 지정된 응답 차례를 맡을 캐릭터로 고른다", runtime_prompt)
-        self.assertIn("사용자가 시작한 채팅에서 다음 화자는 이번 사용자 발화 뒤 아직 말하지 않은 캐릭터로 고른다", runtime_prompt)
-        self.assertIn("캐릭터가 사용자에게 질문하거나 확인을 요청하면 `[[next:stop]]`을 출력한다", runtime_prompt)
         self.assertNotIn("마무리됐", runtime_prompt)
         self.assertNotIn("사용자의 답을 기다리", runtime_prompt)
         self.assertNotIn("현재 사용자 요청 안에서 답할 내용", runtime_prompt)
@@ -186,7 +211,8 @@ class ChatResponseDeliveryTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertNotIn("마무리됐", auto_prompt)
 
-    async def test_closing_instruction_only_on_last_turn(self) -> None:
+    async def test_no_closing_instruction(self) -> None:
+        # 턴 한도는 chat_loop가 강제하므로 마지막 턴 안내를 넣지 않는다.
         closing = "이번 발언이 이 대화의 마지막 발언이다"
         for autonomous in (False, True):
             with self.subTest(autonomous=autonomous, turn="last"):
@@ -194,8 +220,8 @@ class ChatResponseDeliveryTests(unittest.IsolatedAsyncioTestCase):
                     "본문\n[[next:stop]]", reaction_trigger=False,
                     turn_index=3, turn_limit=3, autonomous=autonomous,
                 )
-                self.assertIn(closing, prompt)
-                self.assertIn("화제를 마무리하는 말로 끝내고 [[next:stop]]을 출력한다", prompt)
+                self.assertNotIn(closing, prompt)
+                self.assertNotIn("화제를 마무리하는 말로 끝내고 [[next:stop]]을 출력한다", prompt)
             with self.subTest(autonomous=autonomous, turn="before_last"):
                 _, _, _, prompt = await self.run_turn(
                     "본문\n[[next:stop]]", reaction_trigger=False,

@@ -65,10 +65,10 @@ class BotPromptPathTests(unittest.TestCase):
                 late_minutes=1,
             ),
         )
-        self.assertIn("검증은 독립적으로 수행하고 현재 요청에 필요한 검증 결과를 답한다", prompt)
-        self.assertIn("후속 발언은 현재 요청 안에서 답할 내용이나 지정된 응답 차례가 남으면", prompt)
-        self.assertIn("이번 발언이 다른 캐릭터의 주장을 반박하거나 정정했으면 그 캐릭터를 고른다", prompt)
-        self.assertIn("캐릭터가 사용자에게 질문하거나 확인을 요청하면 stop을 고른다", prompt)
+        self.assertNotIn("검증은 독립적으로 수행하고 현재 요청에 필요한 검증 결과를 답한다", prompt)
+        self.assertNotIn("후속 발언은 현재 요청 안에서 답할 내용이나 지정된 응답 차례가 남으면", prompt)
+        self.assertNotIn("이번 발언이 다른 캐릭터의 주장을 반박하거나 정정했으면 그 캐릭터를 고른다", prompt)
+        self.assertNotIn("캐릭터가 사용자에게 질문하거나 확인을 요청하면 stop을 고른다", prompt)
         self.assertNotIn("마무리됐", prompt)
         self.assertNotIn("사용자의 답을 기다리", prompt)
         self.assertNotIn("검증 결과가 이미 나온 결론과 같으면", prompt)
@@ -94,7 +94,7 @@ class BotPromptPathTests(unittest.TestCase):
         for agent in agents:
             with self.subTest(role=agent.role):
                 prompt = build_prompt(agent, agents)
-                self.assertIn("문장을 연결하는 대시는 제거한다", prompt)
+                self.assertIn("문장에 포함되는 대시를 제거한다", prompt)
                 self.assertIn("## SOUL 적용", prompt)
                 self.assertIn("## 응답 호칭", prompt)
                 self.assertFalse(
@@ -116,18 +116,18 @@ class BotPromptPathTests(unittest.TestCase):
 
     def test_runtime_prompt_wording(self) -> None:
         runtime_prompt = (DISCORD_ROOT / "prompts" / "RUNTIME.md").read_text(encoding="utf-8")
-        self.assertIn("기준은 Global rules(`AGENTS.principle.md`)의 `언어와 문장` 소절이다.", runtime_prompt)
+        self.assertNotIn("기준은 Global rules(`AGENTS.principle.md`)의 `언어와 문장` 소절이다.", runtime_prompt)
         self.assertNotIn("본문은 자기 이야기로 끝낸다", runtime_prompt)
         self.assertNotIn("사용자와의 대화 내용", runtime_prompt)
 
-    def test_runtime_prompt_has_channel_style_line_for_every_role(self) -> None:
+    def test_runtime_prompt_has_no_channel_style_line(self) -> None:
         line = "- 채널 대화나 기억에 다른 캐릭터의 말투가 보여도 말투와 어미는 자기 Persona의 Communication Style에서 고른다."
         turn_prompt = (DISCORD_ROOT / "prompts" / "TURN.md").read_text(encoding="utf-8")
         self.assertNotIn(line, turn_prompt)
         agents = roster_agents()
         for agent in agents:
             with self.subTest(role=agent.role):
-                self.assertIn(line, build_prompt(agent, agents))
+                self.assertNotIn(line, build_prompt(agent, agents))
 
     def test_roster_includes_soul_identity(self) -> None:
         agents = roster_agents()

@@ -59,10 +59,10 @@ chat turn conversation=... channel=... turn=3/<chat.max_turns> speaker=ricky nex
   - 현재 화자이거나 등록되지 않은 ID이면 대화가 끝난다.
 - `next=stop`: 캐릭터가 stop을 고름
   - 사용자의 새 메시지로 멈춘 턴도 `next=stop`으로 남는다.
+  - 마지막 줄에 `[[next:...]]`가 없는 응답도 본문을 보낸 뒤 `next=stop`으로 남는다.
   - 이때는 같은 시각에 `chat turn discarded reason=pending_discard` 줄이 있다.
 - `next=None`: 제어 줄 형식 오류
   - 원인은 같은 시각의 `chat response control invalid` 줄 끝에 있다.
-  - `chat response requires a final next control line`: 마지막 줄에 `[[next:...]]`가 없음
   - `chat reaction must not be empty`: 리액션 제어 줄의 이모지가 비어 있음
   - `chat control lines are duplicated, malformed or misplaced`: 제어 줄의 중복이나 형식·위치 오류
 - `chat turn discarded reason=pending_discard`: 사용자의 새 메시지로 대화가 멈춤

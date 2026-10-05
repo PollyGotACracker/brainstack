@@ -1103,20 +1103,8 @@ class AgentBot(discord.Client):
                 "다른 사람 메시지에 이모지로만 반응하려면 [[react:<이모지>]] 줄과 [[next:stop]] 줄만 출력한다. "
                 "반응할 것이 없으면 [[next:stop]] 한 줄만 출력한다."
             )
-        elif autonomous:
-            turn_instruction = (
-                "현재 대화의 주제를 먼저 확인하고 그 주제를 기준으로 말한다. "
-                "직전 캐릭터의 발언은 그 주제에 직접 답하거나 보완하는 내용일 때만 이어받는다. "
-                "직전 캐릭터가 사용자 의도에서 벗어났으면 그 내용을 이어가지 않는다."
-            )
         else:
-            turn_instruction = (
-                "현재 대화의 주제를 먼저 확인하고, 가장 최근 사용자 발언은 그 주제 안에서 해석해 답한다. "
-                "사용자가 주제를 바꾸면 바뀐 주제를 기준으로 한다. "
-                "질문·요청·교정이 있으면 그 내용을 기준으로 답한다. "
-                + ("" if is_chat else "작업 요청에서는 사용자 의도에 맞는 직전 발언만 이어받는다. ")
-                + "질문이나 요청이 없는 채팅이면 화제에 대한 캐릭터의 반응으로 답한다."
-            )
+            turn_instruction = ""
         # 자율 채팅은 주제가 있는 채널에서만 웹 검색을 쓰고, 화제를 그 주제 범위에 맞춘다.
         auto_topic = self.runtime.config.chat_topics.get(channel_id) if autonomous else None
         if autonomous and auto_topic is None:
@@ -1129,22 +1117,7 @@ class AgentBot(discord.Client):
                 turn_instruction += f"\n웹 검색으로 이 채널의 주제({auto_topic})에 관한 최근 소식을 하나 찾아 가볍게 꺼낸다."
             turn_instruction += f"\n이 채널은 다음 주제를 이야기하는 곳이라 화제는 이 범위 안에서 고른다: {auto_topic}"
 
-        if turn_index == turn_limit and not reaction_trigger:
-            turn_instruction += (
-                "\n이번 발언이 이 대화의 마지막 발언이다. "
-                "다른 캐릭터에게 묻는 말 대신 화제를 마무리하는 말로 끝내고 [[next:stop]]을 출력한다."
-            )
-
-        continuation_rule = (
-            "다른 캐릭터의 발언에 반응하거나 덧붙일 캐릭터가 있으면 그 캐릭터를 고른다."
-            if autonomous
-            else ("" if is_chat else (
-                "작업 요청이면 현재 요청에서 답할 내용이나 응답 차례가 남은 캐릭터를 고른다. "
-                "작업 요청에서 이번 발언이 다른 캐릭터의 주장을 반박하거나 정정했으면 그 캐릭터를 고른다. "
-            ))
-            + "채팅이면 Response control 절의 사용자가 시작한 채팅 기준으로 고른다. "
-            "캐릭터가 사용자에게 질문하거나 확인을 요청하면 stop을 고른다."
-        )
+        continuation_rule = ""
         react_target = self.runtime.chat_last_message.get(channel_id)
         react_target_label = self._react_target_label(react_target)
         if isinstance(channel, discord.Thread) and channel.parent is not None:

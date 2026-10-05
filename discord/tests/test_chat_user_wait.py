@@ -49,7 +49,8 @@ class WaitParserTests(unittest.TestCase):
                          ("채팅 종료", "stop", None, False))
 
     def test_wait_must_be_single_control_line_before_next(self) -> None:
-        for response in ("[[wait:user]]", "본문 [[wait:user]]\n[[next:stop]]",
+        self.assertEqual(bot.parse_chat_controls("[[wait:user]]"), ("", "stop", None, True))
+        for response in ("본문 [[wait:user]]\n[[next:stop]]",
                          "[[wait:user]]\n[[wait:user]]\n[[next:stop]]",
                          "[[wait:agent]]\n[[next:stop]]",
                          "[[wait:user]]\n[[react:👍]]\n[[next:stop]]",
@@ -206,8 +207,8 @@ class WaitPromptTests(unittest.TestCase):
         turn = (DISCORD_ROOT / "prompts/TURN.md").read_text(encoding="utf-8")
         self.assertIn("선택적인 `[[wait:user]]` 줄", runtime)
         self.assertIn("실행 승인은 그 발언의 대상·행동·영향 범위를 별도로 확인한다", runtime)
-        self.assertIn("대기 제어의 보장 범위는 표식 파싱 이후의 종속 진행이다", runtime)
-        self.assertIn("마지막 턴에도 `RUNTIME.md`의 `Response control` 절을 적용한다", turn)
+        self.assertNotIn("대기 제어의 보장 범위는 표식 파싱 이후의 종속 진행이다", runtime)
+        self.assertNotIn("마지막 턴에도 `RUNTIME.md`의 `Response control` 절을 적용한다", turn)
 
 
 if __name__ == "__main__":

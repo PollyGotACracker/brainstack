@@ -248,12 +248,6 @@ def render_role_tool_block(
         role_tool_block = (
             f"- channel_history 도구로 채널의 최근 메시지를 최대 {tools_config.channel_history_max}개까지 다시 읽을 수 있다. "
             "인용이 실제 메시지와 맞는지 대조할 때 쓴다.\n"
-            "- 사실 검증은 비판적으로 한다. 주장을 그대로 받아들이지 않고 웹 검색으로 근거와 반대 근거를 함께 찾는다. "
-            "근거가 부족하면 맞다고 하지 않고 확인되지 않았다고 말한다.\n"
-            "- 검증은 독립적으로 수행하고 현재 요청에 필요한 검증 결과를 답한다. "
-            "후속 발언은 현재 요청 안에서 답할 내용이나 지정된 응답 차례가 남으면 이어간다.\n"
-            "- 이번 발언이 다른 캐릭터의 주장을 반박하거나 정정했으면 그 캐릭터를 고른다. "
-            "캐릭터가 사용자에게 질문하거나 확인을 요청하면 stop을 고른다.\n"
         )
     elif role == "assistant":
         role_tool_block = (
@@ -404,14 +398,12 @@ def build_chat_system_prompt(
 def parse_chat_controls(result: str) -> tuple[str, str, str | None, bool]:
     lines = result.strip().splitlines()
     next_match = CHAT_NEXT.fullmatch(lines[-1].strip()) if lines else None
-    if next_match is None:
-        raise ValueError("chat response requires a final next control line")
-    lines.pop()
-
+    # 마지막 next 줄이 빠진 응답은 next를 stop으로 보고 wait·react 줄은 그대로 분리한다.
+    if next_match:
+        lines.pop()
     wait_match = CHAT_WAIT.fullmatch(lines[-1].strip()) if lines else None
     if wait_match:
         lines.pop()
-
     react_match = CHAT_REACT.fullmatch(lines[-1].strip()) if lines else None
     react_emoji = react_match.group(1).strip() if react_match else None
     if react_match:
@@ -424,7 +416,8 @@ def parse_chat_controls(result: str) -> tuple[str, str, str | None, bool]:
                                 or re.search(r"\[\[\s*wait\s*:", react_emoji, re.IGNORECASE)))):
         raise ValueError("chat control lines are duplicated, malformed or misplaced")
 
-    return text, "stop" if wait_match else next_match.group(1).lower(), react_emoji, bool(wait_match)
+    next_name = next_match.group(1).lower() if next_match and not wait_match else "stop"
+    return text, next_name, react_emoji, bool(wait_match)
 
 
 # 기존 호출자의 3값 API를 유지한다.
