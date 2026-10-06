@@ -11,6 +11,7 @@ from unittest.mock import patch
 import check_agent_input as hook
 
 STATE = "상태 문서: log/state/20261006-0555-x.md\n절: 요구사항 목록"
+RESEARCH = "작업 종류: 조사\n조사 문서: log/state/20261006-0555-x-research.md"
 INPUT = "입력 문서: log/state/20261006-0555-x-input.md"
 REFUTE = "작업 종류: 반증\n주장: 1. 변경이 요구를 충족한다.\n증거: 코드 발췌\n출처: hooks/a.py:12\n판정 기준: 요구 충족\n원문 발췌: 확인할 원문"
 
@@ -37,16 +38,18 @@ class AgentInput(unittest.TestCase):
                 self.assertIsNotNone(hook.check(make("jelly", "이전 대화 요약: ..."), runner))
                 self.assertIsNotNone(hook.check(make("jelly", INPUT + "\n추가 설명"), runner))
                 self.assertIsNone(hook.check(make("jelly", INPUT), runner))
-                self.assertIsNone(hook.check(make("nico", STATE), runner))
+                self.assertIsNone(hook.check(make("nico", RESEARCH), runner))
 
     def test_worker_reviewer_take_input_doc_only(self):
         for target in ("jelly", "worker", "ricky", "reviewer"):
             self.assertIsNotNone(hook.check(claude(target, STATE), "claude"))
             self.assertIsNone(hook.check(claude(target, INPUT), "claude"))
 
-    def test_others_take_state_doc_only(self):
+    def test_researcher_takes_research_doc_only(self):
         self.assertIsNotNone(hook.check(claude("researcher", INPUT), "claude"))
-        self.assertIsNone(hook.check(claude("researcher", STATE), "claude"))
+        self.assertIsNotNone(hook.check(claude("researcher", STATE), "claude"))
+        self.assertIsNotNone(hook.check(claude("researcher", RESEARCH + "\n추가 설명"), "claude"))
+        self.assertIsNone(hook.check(claude("researcher", RESEARCH), "claude"))
 
     def test_documenter_record_request_left_to_other_hook(self):
         self.assertIsNone(hook.check(claude("pepper", "기록 문구"), "claude"))
@@ -76,7 +79,7 @@ class AgentInput(unittest.TestCase):
                     self.assertIsNone(hook.check(make(target, good), runner))
                     self.assertIsNotNone(hook.check(make(target, "자유 형식 입력"), runner))
             for target in hook.RESEARCHER:
-                self.assertIsNone(hook.check(make(target, STATE), runner))
+                self.assertIsNone(hook.check(make(target, RESEARCH), runner))
                 self.assertIsNotNone(hook.check(make(target, "자유 형식 입력"), runner))
 
     def test_root_and_subdirectory_have_same_decisions(self):
@@ -84,7 +87,7 @@ class AgentInput(unittest.TestCase):
         for runner, make in (("claude", claude), ("codex", codex)):
             for cwd in (root, root / "hooks"):
                 for target, prompt, denied in (("jelly", INPUT, False), ("ricky", STATE, True),
-                                               ("pepper", STATE, False), ("nico", STATE, False),
+                                               ("pepper", STATE, False), ("nico", RESEARCH, False),
                                                ("ricky", REFUTE, False), ("Explore", "자유 입력", False),
                                                ("director", "자유 입력", False), ("rio", "자유 입력", False),
                                                ("assistant", "자유 입력", False), ("buddy", "자유 입력", False)):

@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 STATE = ROOT / "log" / "state"
 ACTIVE = STATE / ".active"
 SUFFIX = {"state": "", "input": "-input", "research": "-research"}
-TASK_ID = re.compile(r"^(?:입력|상태) 문서: log/state/([\w.\-]+?)(?:-input)?\.md\s*$", re.M)
+TASK_ID = re.compile(r"^(?:입력|상태|조사) 문서: log/state/([\w.\-]+?)(?:-input|-research)?\.md\s*$", re.M)
 HEADING = re.compile(r"^(#{1,6}) (.*)$")
 
 

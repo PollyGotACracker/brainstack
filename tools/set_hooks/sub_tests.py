@@ -261,7 +261,7 @@ class InstallTest(unittest.TestCase):
         self.assertEqual(codex["hooks"], source["codex_hooks"]["hooks"])
         for event in ("SessionStart", "SubagentStart"):
             hook = codex["hooks"][event][0]["hooks"][0]
-            self.assertEqual(hook["additionalContextLimit"], 6000)
+            self.assertEqual(hook["additionalContextLimit"], 10000)
             self.assertIn("--include-role", hook["command"])
             self.assertIn(str(self.bundle), hook["commandWindows"])
         for key in ("agent", "env", "statusLine"):

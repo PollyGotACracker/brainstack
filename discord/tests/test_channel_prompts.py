@@ -118,7 +118,7 @@ class ChannelKindTests(unittest.TestCase):
 class ChatSystemPromptTests(unittest.TestCase):
     def test_chat_prompt_for_every_role(self) -> None:
         agents = roster_agents()
-        common = (PROJECT_ROOT / "AGENTS.md").read_text(encoding="utf-8").strip()
+        common = prompts_module.strip_section(prompts_module.read_common_rules(PROJECT_ROOT), "## 문서 서식")
         chat_text = prompts_module.CHAT_PROMPT_PATH.read_text(encoding="utf-8")
         self.assertEqual(len(agents), 6)
         for agent in agents:
@@ -145,6 +145,20 @@ class ChatSystemPromptTests(unittest.TestCase):
                 self.assertNotIn("역할: ", tail)
                 if agent.role == "reviewer":
                     self.assertNotIn("사실 검증은 비판적으로 한다", prompt)
+
+    def test_doc_format_only_in_request_prompt(self) -> None:
+        agents = roster_agents()
+        for agent in agents:
+            with self.subTest(role=agent.role):
+                chat = build_chat(agent, agents)
+                request = build_request(agent, agents)
+                self.assertNotIn("## 문서 서식", chat)
+                self.assertIn("## 문서 서식", request)
+                for prompt in (chat, request):
+                    self.assertIn("### 지적과 재작업", prompt)
+                    self.assertIn("확인한 근거에 따라 자신의 판단을 제시한다", prompt)
+                    for dropped in ("# 프로젝트 원칙", "## 경로 목록", "## Skill 적용"):
+                        self.assertNotIn(dropped, prompt)
 
     def test_chat_memory_block_drops_only_handoff_line(self) -> None:
         memory_lines = prompts_module.MEMORY_BLOCK.split("\n")

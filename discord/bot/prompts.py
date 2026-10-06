@@ -274,7 +274,7 @@ def build_request_system_prompt(
     tools_config: ToolsConfig,
     reminders_config: RemindersConfig,
 ) -> str:
-    common = (root / "AGENTS.md").read_text(encoding="utf-8").strip()
+    common = read_common_rules(root)
     role_dir = canonical_role_dir(root, role)
     soul = (role_dir / "SOUL.md").read_text(encoding="utf-8").strip()
     character_memory = render_character_memory(root, role)
@@ -353,6 +353,21 @@ def build_request_system_prompt(
     )
 
 
+# 공통 규칙에서 heading 절을 뺀다. 채팅에서는 문서 파일을 쓰지 않으므로 `## 문서 서식` 절을 뺄 때 쓴다.
+# 절은 heading 줄부터 다음 `# `·`## ` 제목이나 `---` 줄 앞까지이다.
+def strip_section(text: str, heading: str) -> str:
+    match = re.search(rf"^{re.escape(heading)}\n.*?(?=^#{{1,2}} |^---$|\Z)", text, re.M | re.S)
+    return text[:match.start()] + text[match.end():] if match else text
+
+
+# Discord 공통 규칙은 AGENTS.md의 `# 프로젝트 원칙` 앞까지이다. 그 뒤는 로컬 저장소 작업 전용이다.
+PROJECT_RULES = re.compile(r"\r?\n---\r?\n\s*# 프로젝트 원칙")
+
+
+def read_common_rules(root: Path) -> str:
+    return PROJECT_RULES.split((root / "AGENTS.md").read_text(encoding="utf-8"), 1)[0].strip()
+
+
 # 채팅 채널용 시스템 프롬프트(공통 규칙 + 페르소나 + 채팅 규칙)를 만든다.
 # 작업용 담당 넘기기·Archive 절차 없이 이름·내부 ID·SOUL identity만 담은 동료 명단을 쓴다.
 def build_chat_system_prompt(
@@ -364,7 +379,7 @@ def build_chat_system_prompt(
     tools_config: ToolsConfig,
     reminders_config: RemindersConfig,
 ) -> str:
-    common = (root / "AGENTS.md").read_text(encoding="utf-8").strip()
+    common = strip_section(read_common_rules(root), "## 문서 서식")
     soul = (canonical_role_dir(root, role) / "SOUL.md").read_text(encoding="utf-8").strip()
     character_memory = render_character_memory(root, role)
     chat_template = CHAT_PROMPT_PATH.read_text(encoding="utf-8").strip()

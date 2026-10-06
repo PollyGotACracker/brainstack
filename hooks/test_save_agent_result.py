@@ -12,18 +12,12 @@ RESEARCH = """# 조사 문서: t
 
 ## 조사·반증 루프
 
-| 단계 | 회차 | 반증 건수 | 정지 여부 |
-| ---- | ---- | --------- | --------- |
+| 회차 | 반증 건수 | 정지 여부 |
+| ---- | --------- | --------- |
 
 ## 조사 단계 원문
 
 ### 최종 조사 원문: 조사 단계
-
-```
-기록 없음
-```
-
-### 최종 반증 원문: 조사 단계
 
 ```
 기록 없음
@@ -59,16 +53,31 @@ class SaveResult(unittest.TestCase):
         return self.doc.read_text(encoding="utf-8")
 
     def test_researcher_result_saved(self):
-        text = self.stop("nico", "작업 종류: 조사\n상태 문서: log/state/t.md", "후보 A, 후보 B")
+        text = self.stop("nico", "작업 종류: 조사\n조사 문서: log/state/t-research.md", "후보 A, 후보 B")
         self.assertIn("```\n후보 A, 후보 B\n```", text)
-        self.assertIn("최종 반증 원문: 조사 단계\n\n```\n기록 없음", text)
+        self.assertNotIn("회차 반증", text)
 
     def test_refute_saved_with_loop_row(self):
         (self.state / ".active").mkdir()
         (self.state / ".active" / "s1.json").write_text('{"researcher": "t"}', encoding="utf-8")
         text = self.stop("ricky", "작업 종류: 반증\n주장: x", "- 주장 1: 반증 | 출처: https://a.example")
-        self.assertIn("```\n- 주장 1: 반증 | 출처: https://a.example\n```", text)
-        self.assertIn("| 조사 | 1 | 1 | 계속 |", text)
+        self.assertIn("### 1회차 반증 요청\n\n```\n작업 종류: 반증\n주장: x\n```", text)
+        self.assertIn("### 1회차 반증 원문\n\n```\n- 주장 1: 반증 | 출처: https://a.example\n```", text)
+        self.assertIn("| 1 | 1 | 계속 |", text)
+        text = self.stop("ricky", "작업 종류: 반증\n주장: y", "- 주장 1: 지지 | 출처: https://b.example")
+        self.assertIn("### 2회차 반증 요청\n\n```\n작업 종류: 반증\n주장: y\n```", text)
+        self.assertIn("| 2 | 0 | 정지(반증 0건) |", text)
+        self.assertLess(text.index("### 2회차 반증 원문"), text.index("## 후보 비교"))
+        self.assertIn("주장 1: 반증", text)
+
+    def test_fenced_result_replaced_whole(self):
+        first = "결과\n```py\nx = 1\n```\n끝"
+        text = self.stop("nico", "작업 종류: 조사\n조사 문서: log/state/t-research.md", first)
+        self.assertIn("````\n" + first + "\n````", text)
+        text = self.stop("nico", "작업 종류: 조사\n조사 문서: log/state/t-research.md", "두 번째")
+        self.assertIn("최종 조사 원문: 조사 단계\n\n```\n두 번째\n```\n\n## 후보 비교", text)
+        self.assertNotIn("x = 1", text)
+        self.assertNotIn("끝", text)
 
     def test_review_not_saved(self):
         text = self.stop("ricky", "작업 종류: 검수\n입력 문서: log/state/t-input.md", "PASS")

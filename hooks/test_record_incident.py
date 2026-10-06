@@ -35,6 +35,16 @@ class RecordIncident(unittest.TestCase):
         self.assertEqual(len(files), 1)
         self.assertEqual(files[0].read_text(encoding="utf-8").count("감지 표현"), 2)
 
+    def test_real_admissions_detected(self):
+        samples = ("네, 제 잘못입니다.", "둘 다 제가 틀렸습니다.", "오늘 docs를 빼먹었습니다.",
+                   "# 루프 설계 (빠뜨린 부분)", "제 사전 검토 누락입니다.", "제가 지시를 잘못 해석해서 적었습니다.",
+                   "제가 번호를 잘못 맞췄습니다.", "확정 8을 제가 직접 어긴 것입니다.",
+                   "지금 실제 파일 확인 안 하고 제안했습니다.", "제가 근거 없이 말했습니다.",
+                   "제 분류 착오였습니다.", "제가 엉뚱한 쪽으로 갔어요.", "계속 망가뜨리고 있습니다.",
+                   "앞의 제안은 철회합니다.", "토큰을 크게 낭비했습니다.")
+        for text in samples:
+            self.assertTrue(hook.ADMIT.search(text), text)
+
     def test_plain_response_ignored(self):
         self.assertEqual(self.run_hook("검증을 끝냈어요."), [])
 

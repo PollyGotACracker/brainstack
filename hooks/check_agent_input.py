@@ -6,7 +6,8 @@ hook 입력 JSON을 stdin으로 받는다. 위반이면 permissionDecision deny�
 
 문서 입력 형식 (documenter는 상태 문서 1개와 입력 문서 0개 또는 1개를 받는다)
     입력 문서: log/state/<작업-id>-input.md   (worker·reviewer 대상, documenter 대상은 0개 또는 1개)
-    상태 문서: log/state/<작업-id>.md         (documenter 포함 그 외 대상)
+    상태 문서: log/state/<작업-id>.md         (documenter 대상)
+    조사 문서: log/state/<작업-id>-research.md (researcher 대상, 이 줄 하나만)
     절: <절 식별자>      (0회 이상)
     항목: <항목 식별자>  (0회 이상)
 - documenter·worker·reviewer·researcher와 해당 별칭만 검사한다. 다른 에이전트는 통과한다.
@@ -44,6 +45,7 @@ TARGET_KEYS = ("subagent_type", "agent_type", "agent_role", "role")
 PROMPT_KEYS = ("prompt", "message")
 INPUT_LINE = re.compile(r"^입력 문서: log/state/[\w.\-]+-input\.md$")
 STATE_LINE = re.compile(r"^상태 문서: log/state/[\w.\-]+(?<!-input)\.md$")
+RESEARCH_LINE = re.compile(r"^조사 문서: log/state/[\w.\-]+-research\.md$")
 ID_LINE = re.compile(r"^(절|항목): .+$")
 REFUTE_MARKER = "작업 종류: 반증"
 KIND_LINE = re.compile(r"^작업 종류: .+$")
@@ -70,6 +72,8 @@ def is_format(prompt: str, target: str = "") -> bool:
     lines = [ln.strip() for ln in prompt.splitlines() if ln.strip()]
     if lines and KIND_LINE.match(lines[0]):
         lines = lines[1:]
+    if target in RESEARCHER:
+        return len(lines) == 1 and bool(RESEARCH_LINE.match(lines[0]))
     n_in = sum(bool(INPUT_LINE.match(ln)) for ln in lines)
     n_st = sum(bool(STATE_LINE.match(ln)) for ln in lines)
     if not all(INPUT_LINE.match(ln) or STATE_LINE.match(ln) or ID_LINE.match(ln) for ln in lines):
@@ -110,6 +114,8 @@ def check(data: dict, runner: str) -> str | None:
         return None
     if target in WORKER_REVIEWER:
         return "worker·reviewer 일반 검수 입력은 `입력 문서: log/state/<작업-id>-input.md` 한 줄만 허용합니다."
+    if target in RESEARCHER:
+        return "researcher 조사 입력은 `조사 문서: log/state/<작업-id>-research.md` 한 줄만 허용합니다."
     return "서브에이전트 입력은 `상태 문서: log/state/<작업-id>.md`와 `절:`·`항목:` 줄만 허용합니다."
 
 

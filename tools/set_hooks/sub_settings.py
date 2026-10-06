@@ -33,16 +33,17 @@ CLAUDE_PERMISSION_RULES = {
         "Bash(stat *)",
         "Bash(date *)",
         "Bash(wc *)",
+        "Bash(python -m unittest *)",
+        "Bash(python3 -m unittest *)",
+        "Bash(py -m unittest *)",
+        "Bash(python hooks/test_*.py)",
+        "Bash(python -B tools/set_hooks/sub_tests.py)",
         "Bash(python tools/check_doc_rule.py)",
         "Bash(python tools/set_skills.py check)",
         "Bash(python ../tools/check_doc_rule.py)",
         "Bash(python ../tools/set_skills.py check)"
     ],
     "ask": [
-        "Agent(nico)",
-        "Agent(pepper)",
-        "Agent(jelly)",
-        "Agent(ricky)",
         "Bash(git checkout *)",
         "Bash(git switch *)",
         "Bash(git restore *)",
@@ -225,7 +226,7 @@ CODEX_HOOK_RULES = {
                     "type": "command",
                     "command": "python \"<BRAINSTACK>\\hooks\\load_agent.py\" --include-role --default-role buddy",
                     "commandWindows": "py \"<BRAINSTACK>\\hooks\\load_agent.py\" --include-role --default-role buddy",
-                    "additionalContextLimit": 6000,
+                    "additionalContextLimit": 10000,
                     "statusMessage": "Brainstack 메인 에이전트 역할 및 공통 지침"
                 }
             ]
@@ -238,7 +239,7 @@ CODEX_HOOK_RULES = {
                     "type": "command",
                     "command": "python \"<BRAINSTACK>\\hooks\\load_agent.py\" --include-role",
                     "commandWindows": "py \"<BRAINSTACK>\\hooks\\load_agent.py\" --include-role",
-                    "additionalContextLimit": 6000,
+                    "additionalContextLimit": 10000,
                     "statusMessage": "Brainstack 서브 에이전트 역할 및 공통 지침"
                 }
             ]

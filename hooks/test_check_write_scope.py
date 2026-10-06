@@ -98,13 +98,17 @@ class WriteScope(unittest.TestCase):
         data["tool_input"]["command"] = "git status"
         self.assertIsNone(hook.check(data, "claude"))
 
-    # 보고 = 기록
-    def test_reported_lines_must_be_shown(self):
-        doc = "### 요구사항 목록\n\n- 작업: 로그인 오류 수정\n"
-        shown = self.transcript(("assistant", "요구사항: - 작업: 로그인 오류 수정"), ("user", "승인"))
-        self.assertIsNone(self.write("log/state/t-input.md", doc, transcript=shown))
-        hidden = self.transcript(("assistant", "다른 보고"), ("user", "승인"))
-        self.assertIsNotNone(self.write("log/state/t-input.md", doc, transcript=hidden))
+    def test_director_bash_allowlist(self):
+        allowed = ("git status", "git log -1 --format=%h", "git diff HEAD~1", "git show HEAD:AGENTS.md",
+                   "git branch --show-current", "date", 'date "+%Y-%m-%d %H:%M"')
+        denied = ("ls", "cat AGENTS.md", "git log && rm x", "git log | head", "git log --output=a.txt",
+                  "git branch -D x", "git -c core.pager=x log", "date -s 2020", "echo $(git log)", "git push")
+        for cmd in allowed:
+            data = {"tool_name": "Bash", "tool_input": {"command": cmd}, "agent_type": "rio"}
+            self.assertIsNone(hook.check(data, "claude"), cmd)
+        for cmd in denied:
+            data = {"tool_name": "Bash", "tool_input": {"command": cmd}, "agent_type": "rio"}
+            self.assertIsNotNone(hook.check(data, "claude"), cmd)
 
     def test_approval_status_needs_user_approval(self):
         doc = "### 실행 승인 범위\n\n- 승인 상태: 승인\n"
@@ -117,13 +121,24 @@ class WriteScope(unittest.TestCase):
         self.assertIsNotNone(self.write("log/state/t-research.md", RESEARCH.replace("기록 없음", "고침")))
         self.assertIsNone(self.write("log/state/t-research.md", RESEARCH.replace("| A    | 낮음 |", "| A | 중간 |")))
 
-    def test_decision_needs_two_candidates(self):
+    def test_round_blocks_protected(self):
+        rounds = RESEARCH + "\n### 1회차 반증 원문\n\n```\n- 주장 1: 반증\n```\n"
+        (self.state / "t-research.md").write_text(rounds, encoding="utf-8")
+        self.assertIsNotNone(self.write("log/state/t-research.md", rounds.replace("반증\n```", "지지\n```")))
+        self.assertIsNotNone(self.write("log/state/t-research.md", RESEARCH))
+        self.assertIsNone(self.write("log/state/t-research.md", rounds.replace("| A    | 낮음 |", "| A | 중간 |")))
+        self.assertIsNotNone(self.write("log/state/n-research.md", rounds))
+
+    def test_new_research_doc_allows_empty_raw_only(self):
+        self.assertIsNone(self.write("log/state/n-research.md", RESEARCH))
+        self.assertIsNotNone(self.write("log/state/n-research.md", RESEARCH.replace("기록 없음", "가짜 결과")))
+
+    def test_decision_needs_research_result(self):
         (self.state / "t-research.md").write_text(RESEARCH, encoding="utf-8")
         doc = "### 확정 결정\n\n1. A를 쓴다.\n"
-        shown = self.transcript(("assistant", "확정 결정 1. A를 쓴다."), ("user", "승인"))
-        self.assertIsNotNone(self.write("log/state/t-input.md", doc, transcript=shown))
-        (self.state / "t-research.md").write_text(RESEARCH + "| B    | 높음 |\n", encoding="utf-8")
-        self.assertIsNone(self.write("log/state/t-input.md", doc, transcript=shown))
+        self.assertIsNotNone(self.write("log/state/t-input.md", doc))
+        (self.state / "t-research.md").write_text(RESEARCH.replace("기록 없음", "결정 1 권고: A"), encoding="utf-8")
+        self.assertIsNone(self.write("log/state/t-input.md", doc))
 
     # 읽기 전용
     def test_readonly_roles(self):
@@ -152,6 +167,16 @@ class WriteScope(unittest.TestCase):
         self.assertIsNotNone(self.agent(prompt, "다시 생각해"))
         self.assertIsNone(self.agent(prompt, "승인"))
         self.assertIsNone(self.agent(prompt, "다시 생각해", agent_id="sub-1"))
+
+    def test_approval_last_line_command(self):
+        allowed = ("승인", "이번엔 테스트 빼고 구현해", "시작해.", "진행", "그래", "응",
+                   "검수해 줘", "주의사항 1\n주의사항 2\n\n진행해!", "그거 안 해도 돼 진행해")
+        denied = ("진행 안 해", "구현하지 마", "승인 안 함", "1", "그러든지.", "반응",
+                  "진행해\n근데 잠깐", "", "안 그래", "안  그래", "못 해", "안 진행해")
+        for text in allowed:
+            self.assertTrue(hook.approved(text), text)
+        for text in denied:
+            self.assertFalse(hook.approved(text), text)
 
     def test_buddy_agent_call_not_checked(self):
         data = {"tool_name": "Agent", "tool_input": {"subagent_type": "Explore", "prompt": "x"},
