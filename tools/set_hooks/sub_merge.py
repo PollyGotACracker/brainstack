@@ -70,7 +70,7 @@ def checked_block(block: str) -> str:
     return block.replace("\r\n", "\n").strip("\n")
 
 
-# sub_settings.py 원본을 읽고 자리표시를 실제 경로로 바꾼다.
+# settings 원본을 읽고 자리표시를 실제 경로로 바꾼다.
 def load_sources() -> dict:
     claude = fill(sub_settings.CLAUDE_SETTINGS, str(ROOT))
     claude["permissions"] = fill(sub_settings.CLAUDE_PERMISSION_RULES, str(ROOT))

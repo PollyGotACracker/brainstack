@@ -7,14 +7,14 @@ import tomllib
 from pathlib import Path
 
 from sub_merge import dump_json, eol_of, load_json, prune, read_text, remove_hooks, sync_hooks, write_text
-from sub_paths import CODEX_AGENTS, CODEX_CONFIG, CODEX_HOOKS, PRINCIPLE
+from sub_paths import CODEX_AGENTS, CODEX_CONFIG, CODEX_HOOKS, COMMON
 
 FEATURES_HEADER = re.compile(r"^\s*\[features\]\s*(#.*)?$")
 TABLE_HEADER = re.compile(r"^\s*\[")
 HOOKS_TRUE = re.compile(r"^\s*hooks\s*=\s*true\s*(#.*)?$")
 
 
-# ~/.codex/hooks.json 내용을 settings 원본에 맞추고 새 기록 항목을 반환한다.
+# Codex hook 설정을 settings 원본에 맞추고 새 기록 항목을 반환한다.
 def sync_codex_hooks(data: dict, source: dict, entry: dict | None, preview: list[str]) -> dict:
     entry = entry or {"hooks": {}, "created": []}
     created = list(entry.get("created", []))
@@ -90,29 +90,29 @@ def uninstall_codex_config(record: dict) -> None:
 # ---------------------------------------------------------------- AGENTS.md 연결
 
 
-# ~/.codex/AGENTS.md가 AGENTS.principle.md에 연결된 방식을 반환한다.
+# Codex 전역 지침이 공통 지침에 연결된 방식을 반환한다.
 # 연결이 아니면 None이다.
 def agents_link_state() -> str | None:
     if CODEX_AGENTS.is_symlink():
         target = Path(os.path.realpath(CODEX_AGENTS))
-        return "symlink" if target == PRINCIPLE.resolve() else None
-    if CODEX_AGENTS.is_file() and os.path.samefile(CODEX_AGENTS, PRINCIPLE):
+        return "symlink" if target == COMMON.resolve() else None
+    if CODEX_AGENTS.is_file() and os.path.samefile(CODEX_AGENTS, COMMON):
         return "hardlink"
     return None
 
 
-# ~/.codex/AGENTS.md를 symlink로, 실패하면 hardlink로 연결한다.
+# Codex 전역 지침을 symlink로, 실패하면 hardlink로 연결한다.
 # 둘 다 실패하면 예외를 낸다.
 def make_agents_link() -> str:
     CODEX_AGENTS.parent.mkdir(parents=True, exist_ok=True)
     if CODEX_AGENTS.is_symlink() or CODEX_AGENTS.exists():
         CODEX_AGENTS.unlink()
     try:
-        CODEX_AGENTS.symlink_to(PRINCIPLE)
+        CODEX_AGENTS.symlink_to(COMMON)
         return "symlink"
     except OSError as symlink_error:
         try:
-            os.link(PRINCIPLE, CODEX_AGENTS)
+            os.link(COMMON, CODEX_AGENTS)
             return "hardlink"
         except OSError as hardlink_error:
             raise RuntimeError(
@@ -127,7 +127,7 @@ def sync_codex_agents() -> tuple[str | None, dict | None, list[str]]:
         return None, None, []
     exists = CODEX_AGENTS.exists() or CODEX_AGENTS.is_symlink()
     preview = [
-        ("기존 파일 백업 후 " if exists else "") + f"연결 -> {PRINCIPLE}",
+        ("기존 파일 백업 후 " if exists else "") + f"연결 -> {COMMON}",
         "      symlink 시도, 실패하면 hardlink",
     ]
     return "link", {}, preview

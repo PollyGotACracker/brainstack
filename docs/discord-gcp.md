@@ -33,13 +33,13 @@ CONFIG_SECRET_ID = os.environ.get("CONFIG_SECRET_ID", "DISCORD_BOT_CONFIG")
 
 `저장소 Clone` 절에서 clone한 저장소 루트는 `brainstack/`이다.
 폴더 구조는 아래와 같다.
-봇은 `brainstack/AGENTS.principle.md`를 공통 규칙으로 읽고 `.claude/agents/`에서 캐릭터 이름과 Persona를 읽는다.
+봇은 `brainstack/AGENTS.md`를 공통 규칙으로 읽고 `.claude/agents/`에서 캐릭터 이름과 Persona를 읽는다.
 루트 `AGENTS.md`의 참조 목록을 공통 프롬프트로 읽는 방식은 아니다.
 
 ```text
 brainstack/
 ├── AGENTS.md
-├── AGENTS.principle.md
+├── AGENTS.md
 ├── .claude/
 │   └── agents/
 │       └── <role>/

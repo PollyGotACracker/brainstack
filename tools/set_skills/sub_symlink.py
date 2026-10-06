@@ -44,7 +44,7 @@ def remove_link(path: Path) -> None:
         os.unlink(path)
 
 
-# shared/skills를 가리키지만 원본이 없어진 링크를 찾는다.
+# 공용 skill 원본을 가리키지만 원본이 없어진 링크를 찾는다.
 def stale_links(folder: Path) -> list[Path]:
     if not folder.is_dir():
         return []

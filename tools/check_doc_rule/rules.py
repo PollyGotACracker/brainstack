@@ -7,12 +7,14 @@ from config import (
     FENCE,
     HEADING,
     INLINE_CODE,
+    KIND_CROSS,
     KIND_DIRECT,
     KIND_NEGATIVE,
     KIND_PATH,
     KIND_RULE_ID,
     KIND_SECTION,
     NEGATIVE,
+    CROSS_REF,
     PATH_LIST_FILE,
     PATH_LIST_SECTION,
     ROOT,
@@ -37,8 +39,7 @@ def check_file(
     check_rule_id = rel.startswith(RULE_ID_SCOPE)
     is_path_list_file = rel == PATH_LIST_FILE
     is_skill = path.name == "SKILL.md"
-    # 열려 있는 경로 목록 제목의 수준.
-    # 절 밖이면 None이다.
+    # 열려 있는 경로 목록 제목의 수준. 절 밖이면 None이다.
     path_list_level: int | None = None
 
     for lineno, line in enumerate(path.read_text(encoding="utf-8-sig").splitlines(), 1):
@@ -58,7 +59,7 @@ def check_file(
                 if candidate and not path_exists(candidate, path.parent, names):
                     violations.append((rel, lineno, KIND_PATH, match.group(1)))
 
-                # `python tools/skills.py link` 같은 명령은 어느 토큰에든 경로가 있을 수 있다.
+                # 명령은 어느 토큰에든 경로가 있을 수 있다.
                 for token in match.group(1).split():
                     root = direct_path_root(token)
                     if (
@@ -70,6 +71,9 @@ def check_file(
 
             for match in SECTION_REF.finditer(line):
                 targets = section_targets(line, match.start(), path, names)
+                if targets is None:
+                    violations.append((rel, lineno, KIND_CROSS, match.group(0)))
+                    continue
                 if not targets:
                     continue
                 for title in INLINE_CODE.findall(match.group(0)):
@@ -82,6 +86,10 @@ def check_file(
         if check_rule_id:
             for match in RULE_ID.finditer(line):
                 violations.append((rel, lineno, KIND_RULE_ID, match.group(0)))
+
+        if not in_fence:
+            for match in CROSS_REF.finditer(line):
+                violations.append((rel, lineno, KIND_CROSS, match.group(0)))
 
         for match in NEGATIVE.finditer(line):
             violations.append((rel, lineno, KIND_NEGATIVE, match.group(0)))

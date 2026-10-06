@@ -9,7 +9,7 @@
 프로젝트 루트: brainstack/
 가상환경:      brainstack/discord/.venv
 봇 코드:       brainstack/ 아래 로컬 저장소와 같은 상대경로
-규칙 원본:     brainstack/AGENTS.principle.md, brainstack/.claude/agents/
+규칙 원본:     brainstack/AGENTS.md, brainstack/.claude/agents/
 Secret:        DISCORD_BOT_CONFIG
 Zone:          us-west1-b
 서비스:        discord-bot
@@ -78,7 +78,7 @@ sudo systemctl restart discord-bot
 sudo systemctl status discord-bot
 ```
 
-- `AGENTS.principle.md`, 역할의 `AGENTS.md`, 자기·동료의 `SOUL.md`는 다음 발언에서 수정 시각이나 크기 변경을 감지한다.
+- `AGENTS.md`, 역할의 `AGENTS.md`, 자기·동료의 `SOUL.md`는 다음 발언에서 수정 시각이나 크기 변경을 감지한다.
   공통 규칙과 Persona는 프롬프트에 넣고 역할 `AGENTS.md`는 캐릭터 이름을 읽는 원본으로 쓴다.
 - `discord/prompts/RUNTIME.md`, `TURN.md`, `CHAT.md`와 자기 역할의 `MEMORY.md`도 같은 방식으로 감지한다.
 - documenter는 `discord/prompts/ARCHIVE.md`도 감지한다.

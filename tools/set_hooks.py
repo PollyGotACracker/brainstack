@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """brainstack 전역 설정을 사용자 전역 파일에 병합하고 반영 상태를 확인한다.
 
-설정 원본은 tools/hooks/sub_settings.py이다.
+설정 원본은 sub_settings 모듈이다.
 원본의 <BRAINSTACK> 자리표시는 이 저장소의 실제 경로로 바꾼다.
 
 install:           settings 원본을 전역 파일에 반영하고 설치 기록을 남긴다.

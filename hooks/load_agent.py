@@ -27,7 +27,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 
 
-# AGENTS.md frontmatter의 name 값을 읽는다.
+# 역할 지침 frontmatter의 name 값을 읽는다.
 # 값이 없으면 None이다.
 def read_agent_name(agents_file: Path) -> str | None:
     text = agents_file.read_text(encoding="utf-8")
@@ -42,7 +42,7 @@ def read_agent_name(agents_file: Path) -> str | None:
     return None
 
 
-# .claude/agents 아래 역할 폴더마다 {역할: 에이전트 이름}을 만든다.
+# 역할 지침 폴더마다 {역할: 에이전트 이름}을 만든다.
 def discover_agents(root: Path) -> dict[str, str]:
     agents: dict[str, str] = {}
     for role_dir in sorted((root / ".claude" / "agents").iterdir()):
@@ -71,7 +71,7 @@ def find_bundle_root() -> Path:
     return root
 
 
-# cwd 폴더 자체의 .claude/settings.json에서 agent 값을 읽는다.
+# cwd 폴더 자체의 Claude 프로젝트 설정에서 agent 값을 읽는다.
 # 상위 폴더는 탐색하지 않는다.
 # 파일이 없거나 읽을 수 없거나 값이 없으면 None이다.
 def read_folder_agent(cwd: Path) -> str | None:
@@ -128,9 +128,9 @@ def main() -> int:
     if not role_file.is_file() or not soul_file.is_file():
         raise FileNotFoundError(f"에이전트 문서가 없습니다: {role_dir}")
 
-    core_file = root / "AGENTS.principle.md"
+    core_file = root / "AGENTS.md"
     if not core_file.is_file():
-        raise FileNotFoundError(f"Core 문서가 없습니다: {core_file}")
+        raise FileNotFoundError(f"공통 지침 문서가 없습니다: {core_file}")
 
     sections: list[str] = []
     if args.include_role:

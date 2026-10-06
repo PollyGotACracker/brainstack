@@ -3,12 +3,13 @@
 
 사용법: 저장소 루트나 다른 위치에서 실행한다.
     python tools/check_doc_rule.py
+    python tools/check_doc_rule.py --hook   (PostToolUse hook: stdin hook 입력의 변경 파일만 검사)
 
 검사1: 백틱 안의 저장소 경로가 있는지 확인한다.
        `<...>` 자리표시자가 있는 경로는 건너뛴다.
 검사2: "`<제목>` 절" 참조가 대상 파일의 제목과 일치하는지 확인한다.
        대상 파일은 같은 줄 앞쪽에 적힌 파일이다.
-       적힌 파일이 없으면 현재 파일, SECTION_EXTRA_FILES, CORE_FILES, SCHEMA_PATTERN 파일에서 찾는다.
+       적힌 파일이 없으면 현재 파일, SECTION_EXTRA_FILES, SCHEMA_PATTERN 파일에서 찾는다.
        제목은 코드 블록 밖에서 읽는다.
        SCHEMA_PATTERN 파일은 예시 코드 블록이 절 이름을 정의하므로 코드 블록 안에서도 읽는다.
 검사3: discord/prompts 파일에서 ASCII 단어 경계의 Rule ID 패턴 [AHT]\\d{3}을 찾는다.
@@ -17,6 +18,9 @@
        공백으로 나눈 토큰마다 검사하므로 명령 안의 경로도 포함한다.
        PATH_LIST_FILE의 PATH_LIST_SECTION 안에서만 허용한다.
        SKILL.md에서는 첫 구간이 해당 Skill의 폴더이면 허용한다.
+검사6: 다른 지침 파일 참조를 찾는다.
+       같은 줄에 .md 경로를 적고 그 파일의 절을 부르는 참조와 CROSS_REF 표현이 대상이다.
+       같은 파일 절과 양식 파일 절 참조는 허용한다.
 
 검사 대상 파일은 TARGET_PATTERNS로 찾는다.
 결과는 파일별로 출력한다.
@@ -28,6 +32,7 @@
 """
 from __future__ import annotations
 
+import json
 import sys
 from collections import Counter
 from pathlib import Path
@@ -38,6 +43,40 @@ sys.path.insert(0, str(Path(__file__).resolve().parent / "check_doc_rule"))
 from rules import check_file, find_targets
 from config import KINDS
 from paths import build_name_index
+from config import ROOT
+
+HOOKS = Path(__file__).resolve().parent.parent / "hooks"
+
+
+# PostToolUse hook 입력의 변경 파일 중 검사 대상만 검사한다.
+# 위반이 있으면 {"decision": "block", "reason": ...}을 출력한다. 오류는 통과한다.
+def hook_main() -> int:
+    sys.stdin.reconfigure(encoding="utf-8")
+    sys.stdout.reconfigure(encoding="utf-8")
+    try:
+        sys.path.insert(0, str(HOOKS))
+        from check_write_scope import targets as write_targets
+        data = json.load(sys.stdin)
+        paths = write_targets(data) or []
+        wanted, _ = find_targets()
+        rels = []
+        for path in paths:
+            try:
+                rels.append(path.resolve().relative_to(ROOT.resolve()).as_posix())
+            except ValueError:
+                continue
+        rels = [r for r in rels if r in wanted]
+        if not rels:
+            return 0
+        names = build_name_index()
+        found = [v for r in rels for v in check_file(r, names, {})]
+    except Exception:
+        return 0
+    if found:
+        lines = [f"{r}:{n}: [{k}] {d}" for r, n, k, d in found[:20]]
+        reason = "\n".join(["지침 검사 위반을 고치십시오.", *lines])
+        json.dump({"decision": "block", "reason": reason}, sys.stdout, ensure_ascii=False)
+    return 0
 
 
 # 모든 대상 파일을 검사하고 파일별 결과와 합계를 출력한다.
@@ -70,4 +109,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(hook_main() if "--hook" in sys.argv[1:] else main())

@@ -1,0 +1,49 @@
+"""record_incident.py 동작 테스트. 실행: python hooks/test_record_incident.py"""
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+import record_incident as hook
+
+
+class RecordIncident(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.dir = Path(self.tmp.name) / "incident"
+        self.patch = patch.object(hook, "INCIDENT", self.dir)
+        self.patch.start()
+
+    def tearDown(self):
+        self.patch.stop()
+        self.tmp.cleanup()
+
+    def run_hook(self, message, **extra):
+        hook.record({"session_id": "abcdef123456", "agent_type": "rio", "last_assistant_message": message, **extra})
+        return list(self.dir.glob("*.md"))
+
+    def test_admission_recorded(self):
+        files = self.run_hook("제 판단으로 설계를 뒤집었어요.")
+        self.assertEqual(len(files), 1)
+        text = files[0].read_text(encoding="utf-8")
+        self.assertIn("조치 상태: 미착수", text)
+        self.assertIn("감지 표현: 제 판단으로", text)
+
+    def test_second_hit_appends_same_file(self):
+        self.run_hook("놓쳤어요.")
+        files = self.run_hook("빠뜨렸어요.")
+        self.assertEqual(len(files), 1)
+        self.assertEqual(files[0].read_text(encoding="utf-8").count("감지 표현"), 2)
+
+    def test_plain_response_ignored(self):
+        self.assertEqual(self.run_hook("검증을 끝냈어요."), [])
+
+    def test_code_block_ignored(self):
+        self.assertEqual(self.run_hook("```text\n죄송\n```\n완료"), [])
+
+    def test_subagent_ignored(self):
+        self.assertEqual(self.run_hook("죄송해요.", agent_id="sub-1"), [])
+
+
+if __name__ == "__main__":
+    unittest.main()

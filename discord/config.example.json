@@ -85,7 +85,7 @@
       "tools": ["Read", "WebSearch", "WebFetch"]
     },
     {
-      "role": "planner",
+      "role": "researcher",
       "name": "nico",
       "korean_name": "니코",
       "token": "<NICO_TOKEN>",

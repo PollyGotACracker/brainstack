@@ -23,4 +23,5 @@ reminders.json*
 memory.sqlite3*
 memory_approval.json*
 
-
+# hook 작업 상태
+log/state/.active/

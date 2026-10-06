@@ -7,7 +7,7 @@ from pathlib import Path
 from sub_codex import agents_link_state, features_hooks
 from sub_merge import current_block, get_path, group_label, load_json, load_sources, read_or_empty, read_text
 from sub_paths import (BASHRC, CLAUDE_MD, CLAUDE_SETTINGS, CODEX_AGENTS, CODEX_CONFIG, CODEX_HOOKS, CODEX_OVERRIDE,
-                   CODEX_RULES, PRINCIPLE, RECORD)
+                   CODEX_RULES, COMMON, RECORD)
 
 
 # 전역 파일의 원본 항목을 (파일 이름, 항목, 반영 여부) 목록으로 만든다.
@@ -63,7 +63,7 @@ def check_items(src: dict) -> list[tuple[str, str, bool]]:
     add("Claude 전역 지침", CLAUDE_MD, line, line in (l.strip() for l in read_or_empty(CLAUDE_MD).splitlines()))
 
     state = agents_link_state()
-    add("Codex 전역 지침", CODEX_AGENTS, f"{PRINCIPLE} 연결 ({state or '미연결'})", state is not None)
+    add("Codex 전역 지침", CODEX_AGENTS, f"{COMMON} 연결 ({state or '미연결'})", state is not None)
     add("Codex 전역 지침", CODEX_OVERRIDE, "AGENTS.override.md 없음", not CODEX_OVERRIDE.exists())
     return items
 

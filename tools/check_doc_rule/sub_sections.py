@@ -4,7 +4,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from config import (
-    CORE_FILES,
     FENCE,
     HEADING,
     INLINE_CODE,
@@ -13,7 +12,6 @@ from config import (
     SCHEMA_PATTERN,
     SECTION_EXTRA_FILES,
 )
-from paths import as_repo_path, resolve_file
 
 
 # 코드 블록 밖의 제목을 읽어 캐시에 두고 반환한다.
@@ -39,22 +37,19 @@ def read_headings(path: Path, cache: dict[Path, set[str]]) -> set[str]:
 
 # 절 제목을 찾을 파일 목록을 반환한다.
 # 같은 줄에서 참조 앞의 가장 가까운 백틱 .md 경로를 우선한다.
-# 그런 경로가 없으면 현재 파일, CORE_FILES, 양식 파일을 차례로 찾는다.
-# 빈 목록은 적힌 파일을 찾을 수 없다는 뜻이다(자리표시자나 없는 파일).
+# 그런 경로가 없으면 현재 파일, 추가 파일, 양식 파일을 차례로 찾는다.
+# 적힌 .md 경로가 있으면 None을 반환한다. 지침은 다른 파일의 절을 참조하지 않기 때문이다.
 def section_targets(
     line: str, ref_start: int, current: Path, names: set[str]
-) -> list[Path]:
+) -> list[Path] | None:
     target_token = None
     for match in INLINE_CODE.finditer(line[:ref_start]):
         token = LINE_SUFFIX.sub("", match.group(1).strip())
         if token.endswith(".md"):
             target_token = token
     if target_token is None:
-        core = [ROOT / rel for rel in CORE_FILES if (ROOT / rel).is_file()]
         schema = sorted(p for p in ROOT.glob(SCHEMA_PATTERN) if p.is_file())
         rel = current.relative_to(ROOT).as_posix()
         extra = [ROOT / e for e in SECTION_EXTRA_FILES.get(rel, []) if (ROOT / e).is_file()]
-        return [current] + [path for path in extra + core + schema if path != current]
-    candidate = as_repo_path(target_token, names)
-    resolved = resolve_file(candidate, current.parent) if candidate else None
-    return [resolved] if resolved else []
+        return [current] + [path for path in extra + schema if path != current]
+    return None

@@ -118,7 +118,7 @@ class ChannelKindTests(unittest.TestCase):
 class ChatSystemPromptTests(unittest.TestCase):
     def test_chat_prompt_for_every_role(self) -> None:
         agents = roster_agents()
-        common = (PROJECT_ROOT / "AGENTS.principle.md").read_text(encoding="utf-8").strip()
+        common = (PROJECT_ROOT / "AGENTS.md").read_text(encoding="utf-8").strip()
         chat_text = prompts_module.CHAT_PROMPT_PATH.read_text(encoding="utf-8")
         self.assertEqual(len(agents), 6)
         for agent in agents:
@@ -160,7 +160,7 @@ class CharacterMemoryTests(unittest.TestCase):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         root = Path(directory.name)
-        shutil.copy(PROJECT_ROOT / "AGENTS.principle.md", root / "AGENTS.principle.md")
+        shutil.copy(PROJECT_ROOT / "AGENTS.md", root / "AGENTS.md")
         role_dir = root / ".claude" / "agents" / "worker"
         role_dir.mkdir(parents=True)
         for name in ("AGENTS.md", "SOUL.md"):

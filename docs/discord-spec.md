@@ -15,7 +15,7 @@ Bot은 로컬 저장소를 수정하거나 명령을 실행하지 않는다. 로
     - `poll_create`
     - `thread_create`
     - `message_pin`
-- planner
+- researcher
   - Discord 담당: 새 정보 조사, 최신 정보 확인
   - 전용 도구: 없음
 - worker
@@ -113,10 +113,10 @@ Discord 담당은 `prompts.py`의 `ROLE_DUTIES`에 정의한다. `.claude/agents
 
 에이전트 채널은 두 목록 중 하나에 Discord 채널 ID를 등록한다. 두 목록을 합쳐 하나 이상 등록해야 한다.
 
-| 키                 | 동작                                                   |
-| ------------------ | ------------------------------------------------------ |
-| `request_channels` | 사용자 메시지에만 답한다                               |
-| `chat_channels`    | 채팅 프롬프트로 답하고 per_day만큼 자율 채팅도 한다    |
+| 키                 | 동작                                                |
+| ------------------ | --------------------------------------------------- |
+| `request_channels` | 사용자 메시지에만 답한다                            |
+| `chat_channels`    | 채팅 프롬프트로 답하고 per_day만큼 자율 채팅도 한다 |
 
 같은 채널을 두 목록에 함께 등록할 수 없다.
 
@@ -409,7 +409,7 @@ Discord 담당은 `prompts.py`의 `ROLE_DUTIES`에 정의한다. `.claude/agents
 요청 채널(`request_channels`)은 Claude Code preset 뒤에 다음 순서의 작업 프롬프트를 붙인다.
 
 ```text
-# Global rules         ← /AGENTS.principle.md
+# Global rules         ← /AGENTS.md
 # Persona              ← /.claude/agents/<role>/SOUL.md
 # Character memory     ← /.claude/agents/<role>/MEMORY.md (있을 때만)
 # Discord chat runtime ← /discord/prompts/RUNTIME.md에 prompts.py의 build_request_system_prompt가 역할·도구 정보를 주입한다.
@@ -418,7 +418,7 @@ Discord 담당은 `prompts.py`의 `ROLE_DUTIES`에 정의한다. `.claude/agents
 채팅 채널(`chat_channels`)은 Claude Code preset 없이 다음 순서의 채팅 프롬프트 문자열만 쓴다.
 
 ```text
-# Global rules          ← /AGENTS.principle.md
+# Global rules          ← /AGENTS.md
 # Persona               ← /.claude/agents/<role>/SOUL.md
 # Character memory      ← /.claude/agents/<role>/MEMORY.md (있을 때만)
 # Discord chat channel  ← /discord/prompts/CHAT.md에 prompts.py의 build_chat_system_prompt가 도구·기억 안내를 주입한다.
@@ -449,7 +449,7 @@ Discord 담당은 `prompts.py`의 `ROLE_DUTIES`에 정의한다. `.claude/agents
 - 리액션과 다음 화자 제어 규칙
 - 다른 캐릭터의 종·MBTI, 담당과 전용 도구 목록
 
-`/AGENTS.principle.md`, 역할 지침, 자기 `SOUL.md`, 다른 캐릭터의 `SOUL.md`, `discord/prompts/RUNTIME.md`, `TURN.md`, `CHAT.md`, 자기 `MEMORY.md`의 수정 시각이나 크기가 바뀌면 다음 발언에서 해당 역할의 시스템 프롬프트를 다시 만든다.
+`/AGENTS.md`, 역할 지침, 자기 `SOUL.md`, 다른 캐릭터의 `SOUL.md`, `discord/prompts/RUNTIME.md`, `TURN.md`, `CHAT.md`, 자기 `MEMORY.md`의 수정 시각이나 크기가 바뀌면 다음 발언에서 해당 역할의 시스템 프롬프트를 다시 만든다.
 `MEMORY.md`가 없으면 오류 없이 없는 파일로 감시한다.
 documenter는 `discord/prompts/ARCHIVE.md`도 변경 감지 대상에 포함하며, 지식 저장소 설정이 있을 때 해당 문서를 지식 안내로 읽는다.
 

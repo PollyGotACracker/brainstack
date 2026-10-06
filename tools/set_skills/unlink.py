@@ -1,5 +1,5 @@
 """unlink 명령이다.
-shared/skills를 가리키는 링크만 지운다.
+공용 skill 원본을 가리키는 링크만 지운다.
 """
 from __future__ import annotations
 
@@ -10,14 +10,14 @@ from sub_symlink import link_target, remove_link
 from sub_status import entry_state, read_skills
 
 
-# shared/skills 안을 가리키는 링크인지 확인한다.
+# 공용 skill 원본을 가리키는 링크인지 확인한다.
 # 원본이 없어진 링크도 포함한다.
 def is_shared_link(entry: Path) -> bool:
     target = link_target(entry)
     return target is not None and target.parent == SOURCE
 
 
-# shared/skills를 가리키는 링크와 원본이 없어진 링크를 지운다.
+# 공용 skill 원본을 가리키는 링크와 원본이 없어진 링크를 지운다.
 # 실제 폴더와 다른 곳을 가리키는 링크는 그대로 두고 충돌로 출력한다.
 # 링크 제거에 실패한 항목은 실패로 출력하고 다음 항목을 계속 처리한다.
 # 충돌과 실패가 없으면 0, 하나라도 있으면 1을 반환한다.

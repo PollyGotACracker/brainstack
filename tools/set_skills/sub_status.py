@@ -1,4 +1,4 @@
-"""shared/skills의 skill 목록을 읽고 skill 자리 하나의 상태를 판정한다."""
+"""공용 skill 원본의 skill 목록을 읽고 skill 자리 하나의 상태를 판정한다."""
 from __future__ import annotations
 
 import filecmp
@@ -19,7 +19,7 @@ def same_tree(left: Path, right: Path) -> bool:
     return all(same_tree(left / name, right / name) for name in cmp.common_dirs)
 
 
-# shared/skills에서 SKILL.md가 있는 폴더를 skill로 읽는다.
+# 공용 skill 원본에서 SKILL.md가 있는 폴더를 skill로 읽는다.
 def read_skills() -> list[Path]:
     if not SOURCE.is_dir():
         raise SystemExit(f"{SOURCE}가 없습니다.")
@@ -32,7 +32,7 @@ def entry_state(entry: Path, skill: Path) -> str:
     if target is not None:
         if target == skill.resolve():
             return "연결됨"
-        # 저장소를 옮기기 전의 shared/skills/<같은 이름>을 가리키는 링크이다.
+        # 저장소를 옮기기 전의 같은 이름 skill 원본을 가리키는 링크이다.
         if (
             not target.exists()
             and target.name == skill.name

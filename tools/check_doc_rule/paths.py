@@ -45,8 +45,8 @@ def has_repo_ext(segment: str) -> bool:
 
 # 정규화한 경로 후보를 반환한다.
 # 토큰이 경로가 아니면 None이다.
-# 슬래시 없는 이름은 저장소 파일 확장자가 있어야 한다(`AGENTS.md`).
-# 슬래시 경로는 끝 슬래시, 저장소 파일 확장자, 저장소에 있는 첫 구간(`archive/raw`) 중 하나가 있어야 한다.
+# 슬래시 없는 이름은 저장소 파일 확장자가 있어야 한다.
+# 슬래시 경로는 끝 슬래시, 저장소 파일 확장자, 저장소에 있는 첫 구간 중 하나가 있어야 한다.
 def as_repo_path(token: str, names: set[str]) -> str | None:
     token = LINE_SUFFIX.sub("", token.strip())
     if not token or "<" in token or ">" in token or "$" in token:
@@ -70,7 +70,7 @@ def as_repo_path(token: str, names: set[str]) -> str | None:
 
 
 # 토큰이 DIRECT_PATH_ROOTS 아래 경로이면 첫 구간을 반환한다.
-# 자리표시자 경로(`log/state/<작업-id>.md`)도 포함한다.
+# 자리표시자 경로도 포함한다.
 def direct_path_root(token: str) -> str | None:
     token = LINE_SUFFIX.sub("", token.strip()).replace("\\", "/")
     while token.startswith("./"):

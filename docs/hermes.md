@@ -45,7 +45,7 @@ hermes profile show pepper
 ```text
 buddy  ← .claude/agents/assistant/SOUL.md
 rio    ← .claude/agents/director/SOUL.md
-nico   ← .claude/agents/planner/SOUL.md
+nico   ← .claude/agents/researcher/SOUL.md
 jelly  ← .claude/agents/worker/SOUL.md
 ricky  ← .claude/agents/reviewer/SOUL.md
 pepper ← .claude/agents/documenter/SOUL.md
@@ -73,6 +73,6 @@ Hermes는 그 작업 디렉터리에서 `AGENTS.md` 계층을 읽는다.
 역할별 `AGENTS.md`와 구성 루트의 공통 Core를 각 profile의 프로젝트 지침에 연결하는 설정은 아직 포함하지 않는다.
 `SOUL.md` 복사만으로 역할 지침과 공통 Core까지 로딩되는 것으로 가정하지 않는다.
 
-실제 운영 전에는 해당 profile에서 원본 역할 지침과 `AGENTS.principle.md`, `AGENTS.project.md`의 접근 가능한 실제 경로를 명시해 읽도록 요청한다.
-예를 들어 `nico`에는 `.claude/agents/planner/AGENTS.md`와 두 공통 Core 파일을 지정한다.
+실제 운영 전에는 해당 profile에서 원본 역할 지침과 `AGENTS.md`의 접근 가능한 실제 경로를 명시해 읽도록 요청한다.
+예를 들어 `nico`에는 `.claude/agents/researcher/AGENTS.md`와 공통 지침 파일을 지정한다.
 각 profile의 세션에서 역할·공통 지침과 persona가 함께 적용되는지 확인한다.

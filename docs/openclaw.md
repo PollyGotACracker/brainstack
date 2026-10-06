@@ -37,7 +37,7 @@ OpenClaw에서는 사용자-facing agent id를 README.md 표의 이름으로 사
         sandbox: { mode: "off" },
       },
       nico: {
-        workspace: "<AGENT_BUNDLE_ROOT>/.claude/agents/planner",
+        workspace: "<AGENT_BUNDLE_ROOT>/.claude/agents/researcher",
         cwd: "<TARGET_REPO>",
         sandbox: { mode: "off" },
       },
@@ -69,7 +69,7 @@ OpenClaw 공식 문서상 `workspace`와 실제 coding `cwd`를 분리할 수 �
 실제 운영 전에는 [OpenClaw의 에이전트별 도구 설정](https://docs.openclaw.ai/gateway/config-agents/entries-and-multi-agent)으로 역할별 허용·금지 범위를 구성하고 동작을 확인한다.
 
 각 workspace의 `AGENTS.md`는 역할 지침이다.
-이 예시에는 구성 루트의 `AGENTS.principle.md`와 `AGENTS.project.md`를 자동으로 연결하는 설정이 없다.
+이 예시에는 구성 루트의 `AGENTS.md`를 자동으로 연결하는 설정이 없다.
 공통 Core는 접근 가능한 실제 경로를 지정해 읽도록 요청하고, 세션에 적용되었는지 확인한다.
 
 ## 재시작과 확인

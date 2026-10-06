@@ -61,7 +61,7 @@ SENTENCE_PATTERN = re.compile(r".*?(?:[.!?。！？]+(?=\s|$)|$)")
 # 에이전트 채널에서 역할마다 맡는 요청. 프롬프트의 역할 목록과 요청 넘기기 기준으로 쓴다.
 ROLE_DUTIES = {
     "director": "작업 요청에서 사용자의 현재 질문과 교정 유지, 작업 요청의 주제 이탈과 새로운 정보 없는 반복 조정, 담당이 불분명하거나 여러 역할이 필요한 요청 배정, 투표 올리기, 스레드 만들기, 메시지 고정",
-    "planner": "새 정보 조사, 최신 정보 확인",
+    "researcher": "새 정보 조사, 최신 정보 확인",
     "worker": "코드 조각, 글 초안, 정리, 계산 같은 결과물 작성",
     "reviewer": "발언 검토, 인용 대조(채널 기록), 사실 검증(웹 검색)",
     "documenter": "지식 저장소 조회, 기록, 삭제",
@@ -149,7 +149,7 @@ def prompt_source_signature(
 ) -> tuple[tuple[str, int, int], ...]:
     role_dir = canonical_role_dir(root, role)
     paths = [
-        root / "AGENTS.principle.md", role_dir / "AGENTS.md", role_dir / "SOUL.md",
+        root / "AGENTS.md", role_dir / "AGENTS.md", role_dir / "SOUL.md",
         RUNTIME_PROMPT_PATH, TURN_PROMPT_PATH, CHAT_PROMPT_PATH,
     ]
     paths += [canonical_role_dir(root, other) / "SOUL.md" for other in roster_roles if other != role]
@@ -274,7 +274,7 @@ def build_request_system_prompt(
     tools_config: ToolsConfig,
     reminders_config: RemindersConfig,
 ) -> str:
-    common = (root / "AGENTS.principle.md").read_text(encoding="utf-8").strip()
+    common = (root / "AGENTS.md").read_text(encoding="utf-8").strip()
     role_dir = canonical_role_dir(root, role)
     soul = (role_dir / "SOUL.md").read_text(encoding="utf-8").strip()
     character_memory = render_character_memory(root, role)
@@ -364,7 +364,7 @@ def build_chat_system_prompt(
     tools_config: ToolsConfig,
     reminders_config: RemindersConfig,
 ) -> str:
-    common = (root / "AGENTS.principle.md").read_text(encoding="utf-8").strip()
+    common = (root / "AGENTS.md").read_text(encoding="utf-8").strip()
     soul = (canonical_role_dir(root, role) / "SOUL.md").read_text(encoding="utf-8").strip()
     character_memory = render_character_memory(root, role)
     chat_template = CHAT_PROMPT_PATH.read_text(encoding="utf-8").strip()

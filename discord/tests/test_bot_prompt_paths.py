@@ -81,7 +81,7 @@ class BotPromptPathTests(unittest.TestCase):
                 prompt = build_prompt(agent, agents)
                 role_source = (PROJECT_ROOT / ".claude" / "agents" / agent.role / "AGENTS.md").read_text(encoding="utf-8")
                 role_body = role_source.split("---", 2)[2].strip()
-                first_item = next(line for line in role_body.splitlines() if line.startswith("- "))
+                first_item = next(line for line in role_body.splitlines() if line.strip() and not line.startswith("#"))
                 self.assertNotIn("# Local project role", prompt)
                 self.assertNotIn(role_body, prompt)
                 self.assertNotIn(first_item, prompt)
@@ -116,7 +116,7 @@ class BotPromptPathTests(unittest.TestCase):
 
     def test_runtime_prompt_wording(self) -> None:
         runtime_prompt = (DISCORD_ROOT / "prompts" / "RUNTIME.md").read_text(encoding="utf-8")
-        self.assertNotIn("기준은 Global rules(`AGENTS.principle.md`)의 `언어와 문장` 소절이다.", runtime_prompt)
+        self.assertNotIn("기준은 Global rules(`AGENTS.md`)의 `언어와 문장` 소절이다.", runtime_prompt)
         self.assertNotIn("본문은 자기 이야기로 끝낸다", runtime_prompt)
         self.assertNotIn("사용자와의 대화 내용", runtime_prompt)
 

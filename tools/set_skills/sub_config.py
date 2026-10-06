@@ -1,6 +1,6 @@
 """skill 원본 폴더, 링크·중복 확인 폴더, Hermes 설정 경로이다.
 
-SOURCE는 tools/skills/의 두 단계 위 저장소 폴더의 shared/skills이다.
+SOURCE는 이 모듈 폴더의 두 단계 위 저장소 폴더에 있는 공용 skill 원본이다.
 HOME은 실행 환경의 사용자 폴더이다.
 """
 from __future__ import annotations

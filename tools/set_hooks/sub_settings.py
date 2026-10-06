@@ -5,12 +5,12 @@ install은 이 파일의 리터럴만 사용자 전역 파일에 반영한다.
 <BRAINSTACK>은 install이 이 저장소의 실제 경로로 바꾼다.
 """
 
-# Claude: ~/.claude/settings.json의 단일 값이다.
+# Claude 전역 설정의 단일 값이다.
 # agent·statusLine은 교체하고 env는 키별로 병합한다.
 CLAUDE_SETTINGS = {
     "agent": "buddy",
     "env": {
-        "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH": "1"
+        "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH": "2"
     },
     "statusLine": {
         "type": "command",
@@ -20,7 +20,7 @@ CLAUDE_SETTINGS = {
     }
 }
 
-# Claude: ~/.claude/settings.json permissions에 합집합 병합하며 사용자 allow를 보존한다.
+# Claude 전역 설정 permissions에 합집합 병합하며 사용자 allow를 보존한다.
 CLAUDE_PERMISSION_RULES = {
     "allow": [
         "WebSearch",
@@ -39,6 +39,10 @@ CLAUDE_PERMISSION_RULES = {
         "Bash(python ../tools/set_skills.py check)"
     ],
     "ask": [
+        "Agent(nico)",
+        "Agent(pepper)",
+        "Agent(jelly)",
+        "Agent(ricky)",
         "Bash(git checkout *)",
         "Bash(git switch *)",
         "Bash(git restore *)",
@@ -63,11 +67,10 @@ CLAUDE_PERMISSION_RULES = {
     ]
 }
 
-# Codex: ~/.codex/rules/default.rules의 brainstack 블록에 쓰는 15개 실행 정책이다.
+# Codex 전역 실행 규칙의 brainstack 블록에 쓰는 15개 실행 정책이다.
 # Claude의 Read·Agent 도구 권한을 Codex prefix 규칙으로 확대하지 않는다.
 CODEX_RULES_BLOCK = """# >>> brainstack >>>
-# tools/set_hooks.py install이 관리하는 블록이다.
-# tools/hooks/sub_settings.py CODEX_RULES_BLOCK이 권한 원본이다.
+# brainstack 설치 도구가 관리하는 블록이다.
 # 승인 요청: git checkout, git switch, git restore, git stash, git tag, rm, rmdir
 # 실행 금지: git commit, git push, git merge, git rebase, git reset, git revert, git cherry-pick, git clean
 # 사용자 전역 allow는 누적 사용자 설정이며 이 관리 블록에 포함하지 않는다.
@@ -119,7 +122,7 @@ prefix_rule(pattern=["rm"], decision="prompt")
 prefix_rule(pattern=["rmdir"], decision="prompt")
 # <<< brainstack <<<"""
 
-# Claude: SessionStart·SubagentStart context와 Agent 호출 전 승인 hook이다.
+# Claude: 역할·작업 문서 위치 주입, 하위 에이전트 호출 승인·쓰기 범위 검사, 서브에이전트 입력 검사, 반증 판정 검사, 결과 원문 저장, 지침 검사 사건 감지 hook이다.
 # 이벤트·matcher·명령·옵션·statusMessage를 여기서 직접 확인하고 수정한다.
 CLAUDE_HOOK_RULES = {
     "SessionStart": [
@@ -146,19 +149,74 @@ CLAUDE_HOOK_RULES = {
     ],
     "PreToolUse": [
         {
+            "matcher": "Agent|Edit|Write|NotebookEdit|Bash",
+            "hooks": [
+                {
+                    "type": "command",
+                    "command": "python \"<BRAINSTACK>\\hooks\\check_write_scope.py\" --runner claude",
+                    "timeout": 10,
+                    "statusMessage": "Brainstack 승인·쓰기 범위 검사"
+                }
+            ]
+        },
+        {
             "matcher": "Agent",
             "hooks": [
                 {
                     "type": "command",
-                    "command": "python -c \"import json; print(json.dumps({'hookSpecificOutput': {'hookEventName': 'PreToolUse', 'permissionDecision': 'ask', 'permissionDecisionReason': 'Subagent call requires user approval'}}))\"",
-                    "statusMessage": "Brainstack 서브 에이전트 호출 전 승인"
+                    "command": "python \"<BRAINSTACK>\\hooks\\check_agent_input.py\" --runner claude",
+                    "timeout": 10,
+                    "statusMessage": "Brainstack 서브 에이전트 입력 검사"
+                }
+            ]
+        }
+    ],
+    "SubagentStop": [
+        {
+            "hooks": [
+                {
+                    "type": "command",
+                    "command": "python \"<BRAINSTACK>\\hooks\\check_refute_verdict.py\"",
+                    "timeout": 10,
+                    "statusMessage": "Brainstack 반증 판정 검사"
+                },
+                {
+                    "type": "command",
+                    "command": "python \"<BRAINSTACK>\\hooks\\save_agent_result.py\" --runner claude",
+                    "timeout": 10,
+                    "statusMessage": "Brainstack 결과 원문 저장"
+                }
+            ]
+        }
+    ],
+    "PostToolUse": [
+        {
+            "matcher": "Edit|Write",
+            "hooks": [
+                {
+                    "type": "command",
+                    "command": "python \"<BRAINSTACK>\\tools\\check_doc_rule.py\" --hook",
+                    "timeout": 30,
+                    "statusMessage": "Brainstack 지침 검사"
+                }
+            ]
+        }
+    ],
+    "Stop": [
+        {
+            "hooks": [
+                {
+                    "type": "command",
+                    "command": "python \"<BRAINSTACK>\\hooks\\record_incident.py\" --runner claude",
+                    "timeout": 10,
+                    "statusMessage": "Brainstack 사건 감지"
                 }
             ]
         }
     ]
 }
 
-# Codex: Role·Persona 주입 hook이다. Windows 명령과 context 한도도 같은 원본이다.
+# Codex: Role·Persona·작업 문서 위치 주입, 하위 thread 승인·쓰기 범위 검사, spawn_agent 입력 검사, 반증 판정 검사, 결과 원문 저장, 지침 검사 사건 감지 hook이다. Windows 명령과 context 한도도 같은 원본이다.
 CODEX_HOOK_RULES = {
     "SessionStart": [
         {
@@ -185,12 +243,85 @@ CODEX_HOOK_RULES = {
                 }
             ]
         }
+    ],
+    "PreToolUse": [
+        {
+            "matcher": "apply_patch|Bash",
+            "hooks": [
+                {
+                    "type": "command",
+                    "command": "python \"<BRAINSTACK>\\hooks\\check_write_scope.py\" --runner codex",
+                    "commandWindows": "py \"<BRAINSTACK>\\hooks\\check_write_scope.py\" --runner codex",
+                    "timeout": 10,
+                    "statusMessage": "Brainstack 승인·쓰기 범위 검사"
+                }
+            ]
+        },
+        {
+            "matcher": "spawn_agent",
+            "hooks": [
+                {
+                    "type": "command",
+                    "command": "python \"<BRAINSTACK>\\hooks\\check_agent_input.py\" --runner codex",
+                    "commandWindows": "py \"<BRAINSTACK>\\hooks\\check_agent_input.py\" --runner codex",
+                    "timeout": 10,
+                    "statusMessage": "Brainstack 서브 에이전트 입력 검사"
+                }
+            ]
+        }
+    ],
+    "SubagentStop": [
+        {
+            "hooks": [
+                {
+                    "type": "command",
+                    "command": "python \"<BRAINSTACK>\\hooks\\check_refute_verdict.py\"",
+                    "commandWindows": "py \"<BRAINSTACK>\\hooks\\check_refute_verdict.py\"",
+                    "timeout": 10,
+                    "statusMessage": "Brainstack 반증 판정 검사"
+                },
+                {
+                    "type": "command",
+                    "command": "python \"<BRAINSTACK>\\hooks\\save_agent_result.py\" --runner codex",
+                    "commandWindows": "py \"<BRAINSTACK>\\hooks\\save_agent_result.py\" --runner codex",
+                    "timeout": 10,
+                    "statusMessage": "Brainstack 결과 원문 저장"
+                }
+            ]
+        }
+    ],
+    "PostToolUse": [
+        {
+            "matcher": "apply_patch",
+            "hooks": [
+                {
+                    "type": "command",
+                    "command": "python \"<BRAINSTACK>\\tools\\check_doc_rule.py\" --hook",
+                    "commandWindows": "py \"<BRAINSTACK>\\tools\\check_doc_rule.py\" --hook",
+                    "timeout": 30,
+                    "statusMessage": "Brainstack 지침 검사"
+                }
+            ]
+        }
+    ],
+    "Stop": [
+        {
+            "hooks": [
+                {
+                    "type": "command",
+                    "command": "python \"<BRAINSTACK>\\hooks\\record_incident.py\" --runner codex",
+                    "commandWindows": "py \"<BRAINSTACK>\\hooks\\record_incident.py\" --runner codex",
+                    "timeout": 10,
+                    "statusMessage": "Brainstack 사건 감지"
+                }
+            ]
+        }
     ]
 }
 
-# Git Bash: ~/.bashrc의 brainstack 블록이다. 블록 밖 내용은 바꾸지 않는다.
+# Git Bash 시작 파일의 brainstack 블록이다. 블록 밖 내용은 바꾸지 않는다.
 BASHRC_BLOCK = """# >>> brainstack >>>
-# tools/set_hooks.py install이 관리하는 블록이다.
+# brainstack 설치 도구가 관리하는 블록이다.
 # claude agent <이름> [인자...]: claude --agent <이름> [인자...]로 실행한다.
 # codex agent <이름> [인자...]: BRAINSTACK_AGENT=<이름>으로 codex [인자...]를 실행한다.
 # claude는 첫 인자가 agent가 아니면 원래 명령에 그대로 전달한다.
@@ -227,6 +358,6 @@ codex() {
 }
 # <<< brainstack <<<"""
 
-# Claude: ~/.claude/CLAUDE.md에 추가하는 import 한 줄이다.
+# Claude 전역 지침에 추가하는 import 한 줄이다.
 # <BRAINSTACK>은 슬래시 경로로 바뀐다.
-CLAUDE_IMPORT_LINE = "@<BRAINSTACK>/AGENTS.principle.md"
+CLAUDE_IMPORT_LINE = "@<BRAINSTACK>/AGENTS.md"

@@ -43,7 +43,7 @@ OTHER_USER = 8
 AGENTS = [
     bot.AgentConfig(role=role, name=name, korean_name=korean, token="", tools=[])
     for role, name, korean in (
-        ("director", "rio", "리오"), ("planner", "nico", "니코"), ("worker", "jelly", "젤리"),
+        ("director", "rio", "리오"), ("researcher", "nico", "니코"), ("worker", "jelly", "젤리"),
         ("reviewer", "ricky", "리키"), ("documenter", "pepper", "페퍼"), ("assistant", "buddy", "버디"),
     )
 ]

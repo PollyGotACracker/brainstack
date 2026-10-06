@@ -208,24 +208,24 @@ cp discord/config.example.json discord/config.json
 `summary`와 `memory`는 선택 절이다.
 절이나 키를 생략하면 아래 기본값을 쓰고, 지정한 숫자는 1 이상, 문자열은 비어 있지 않아야 한다.
 
-| 키                        | 기본값             | 의미                                                    |
-| ------------------------- | ------------------ | ------------------------------------------------------- |
+| 키                        | 기본값             | 의미                                                     |
+| ------------------------- | ------------------ | -------------------------------------------------------- |
 | `summary.raw_hours`       | 2                  | 원문으로 보내는 최근 대화 시간. 더 오래된 줄은 요약 대상 |
-| `summary.model`           | `claude-haiku-4-5` | 요약과 캐릭터 기억 추출에 쓰는 모델                     |
-| `summary.max_chars`       | 2000               | 채널 요약문 최대 글자 수                                |
-| `summary.batch_min_lines` | 30                 | 요약을 실행하는 최소 대상 줄 수                         |
-| `summary.batch_max_lines` | 150                | 요약 1회에 넣는 최대 줄 수                              |
-| `summary.batch_max_chars` | 20000              | 요약 1회에 넣는 최대 글자 수                            |
-| `summary.flush_minutes`   | 60                 | 대상 줄이 적어도 요약을 실행하는 대기 시간(분)          |
-| `summary.max_attempts`    | 3                  | 요약 실패 시 시도 횟수. 모두 실패하면 대상 줄을 버림    |
+| `summary.model`           | `claude-haiku-4-5` | 요약과 캐릭터 기억 추출에 쓰는 모델                      |
+| `summary.max_chars`       | 2000               | 채널 요약문 최대 글자 수                                 |
+| `summary.batch_min_lines` | 30                 | 요약을 실행하는 최소 대상 줄 수                          |
+| `summary.batch_max_lines` | 150                | 요약 1회에 넣는 최대 줄 수                               |
+| `summary.batch_max_chars` | 20000              | 요약 1회에 넣는 최대 글자 수                             |
+| `summary.flush_minutes`   | 60                 | 대상 줄이 적어도 요약을 실행하는 대기 시간(분)           |
+| `summary.max_attempts`    | 3                  | 요약 실패 시 시도 횟수. 모두 실패하면 대상 줄을 버림     |
 
-| 키                                 | 기본값 | 의미                                        |
-| ---------------------------------- | ------ | ------------------------------------------- |
-| `memory.prompt_max_items`          | 5      | 턴 프롬프트에 자동으로 붙이는 장기기억 개수 |
-| `memory.prompt_max_chars`          | 1500   | 자동으로 붙이는 장기기억 최대 글자 수       |
-| `memory.search_max_results`        | 10     | `memory_search` 최대 결과 수                |
-| `memory.persona_prompt_max_items`  | 5      | 턴 프롬프트에 붙이는 캐릭터 기억 개수       |
-| `memory.persona_prompt_max_chars`  | 1000   | 캐릭터 기억 최대 글자 수                    |
+| 키                                 | 기본값 | 의미                                         |
+| ---------------------------------- | ------ | -------------------------------------------- |
+| `memory.prompt_max_items`          | 5      | 턴 프롬프트에 자동으로 붙이는 장기기억 개수  |
+| `memory.prompt_max_chars`          | 1500   | 자동으로 붙이는 장기기억 최대 글자 수        |
+| `memory.search_max_results`        | 10     | `memory_search` 최대 결과 수                 |
+| `memory.persona_prompt_max_items`  | 5      | 턴 프롬프트에 붙이는 캐릭터 기억 개수        |
+| `memory.persona_prompt_max_chars`  | 1000   | 캐릭터 기억 최대 글자 수                     |
 | `memory.persona_setting_max_chars` | 1000   | 시스템 프롬프트에 붙이는 캐릭터 설정 글자 수 |
 
 `chat.turn_delay_seconds`는 0 이상, `reminders.timezone_offset_hours`는 -12에서 14 사이, 나머지 숫자는 1 이상이어야 한다.
@@ -237,7 +237,7 @@ cp discord/config.example.json discord/config.json
 | role       | 에이전트 채널 담당                                                                        |
 | ---------- | ----------------------------------------------------------------------------------------- |
 | director   | 담당이 불분명하거나 여러 역할이 필요한 요청 배정, 투표 올리기, 스레드 만들기, 메시지 고정 |
-| planner    | 새 정보 조사, 최신 정보 확인                                                              |
+| researcher | 새 정보 조사, 최신 정보 확인                                                              |
 | worker     | 코드 조각, 글 초안, 정리, 계산 같은 결과물 작성                                           |
 | reviewer   | 발언 검토, 인용 대조(채널 기록), 사실 검증(웹 검색)                                       |
 | documenter | 지식 저장소 조회와 승인 작업 준비                                                         |
@@ -587,7 +587,7 @@ python -c "import sqlite3;c=sqlite3.connect('file:<프로젝트 경로>/discord/
 채팅 프롬프트는 다음 순서로 조립된다.
 
 ```text
-/AGENTS.principle.md
+/AGENTS.md
 +
 /.claude/agents/<role>/SOUL.md
 +
@@ -838,16 +838,16 @@ python discord/bot/bot.py
 Discord 런타임은 다음 파일을 직접 사용한다.
 
 ```text
-/AGENTS.principle.md
+/AGENTS.md
 /.claude/agents/<role>/AGENTS.md
 /.claude/agents/<role>/SOUL.md
 ```
 
 프롬프트는 채널 종류에 따라 다르게 구성한다.
 
-- 요청 채널(`request_channels`): `/AGENTS.principle.md`, `SOUL.md`와 `discord/prompts/RUNTIME.md`로 작업 프롬프트를 만든다.
+- 요청 채널(`request_channels`): `/AGENTS.md`, `SOUL.md`와 `discord/prompts/RUNTIME.md`로 작업 프롬프트를 만든다.
   Claude Code preset 뒤에 붙인다.
-- 채팅 채널(`chat_channels`): `/AGENTS.principle.md`, `SOUL.md`, `discord/prompts/CHAT.md`와 `RUNTIME.md`의 `Response control` 절로 채팅 프롬프트를 만든다.
+- 채팅 채널(`chat_channels`): `/AGENTS.md`, `SOUL.md`, `discord/prompts/CHAT.md`와 `RUNTIME.md`의 `Response control` 절로 채팅 프롬프트를 만든다.
   Claude Code preset 없이 이 문자열만 시스템 프롬프트로 쓴다.
 - 스레드와 포럼 게시글은 부모 채널의 종류를 따른다.
 - `RUNTIME.md`와 `TURN.md`의 `{{request:...}}`·`{{chat:...}}` 표식은 채널 종류에 맞는 내용만 남긴다.

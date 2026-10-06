@@ -1,0 +1,79 @@
+"""save_agent_result.py 동작 테스트"""
+import json
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+import save_agent_result as hook
+import sub_docs
+
+RESEARCH = """# 조사 문서: t
+
+## 조사·반증 루프
+
+| 단계 | 회차 | 반증 건수 | 정지 여부 |
+| ---- | ---- | --------- | --------- |
+
+## 조사 단계 원문
+
+### 최종 조사 원문: 조사 단계
+
+```
+기록 없음
+```
+
+### 최종 반증 원문: 조사 단계
+
+```
+기록 없음
+```
+
+## 후보 비교
+"""
+
+
+class SaveResult(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.state = self.root / "log" / "state"
+        self.state.mkdir(parents=True)
+        self.doc = self.state / "t-research.md"
+        self.doc.write_text(RESEARCH, encoding="utf-8")
+        self.patches = [patch.object(sub_docs, "STATE", self.state), patch.object(hook, "ACTIVE", self.state / ".active")]
+        for p in self.patches:
+            p.start()
+
+    def tearDown(self):
+        for p in self.patches:
+            p.stop()
+        self.tmp.cleanup()
+
+    def stop(self, role, prompt, message):
+        path = self.root / f"{role}.jsonl"
+        path.write_text(json.dumps({"type": "user", "message": {"content": prompt}}, ensure_ascii=False) + "\n",
+                        encoding="utf-8")
+        hook.save({"agent_type": role, "agent_transcript_path": str(path), "session_id": "s1",
+                   "last_assistant_message": message}, "claude")
+        return self.doc.read_text(encoding="utf-8")
+
+    def test_researcher_result_saved(self):
+        text = self.stop("nico", "작업 종류: 조사\n상태 문서: log/state/t.md", "후보 A, 후보 B")
+        self.assertIn("```\n후보 A, 후보 B\n```", text)
+        self.assertIn("최종 반증 원문: 조사 단계\n\n```\n기록 없음", text)
+
+    def test_refute_saved_with_loop_row(self):
+        (self.state / ".active").mkdir()
+        (self.state / ".active" / "s1.json").write_text('{"researcher": "t"}', encoding="utf-8")
+        text = self.stop("ricky", "작업 종류: 반증\n주장: x", "- 주장 1: 반증 | 출처: https://a.example")
+        self.assertIn("```\n- 주장 1: 반증 | 출처: https://a.example\n```", text)
+        self.assertIn("| 조사 | 1 | 1 | 계속 |", text)
+
+    def test_review_not_saved(self):
+        text = self.stop("ricky", "작업 종류: 검수\n입력 문서: log/state/t-input.md", "PASS")
+        self.assertEqual(text, RESEARCH)
+
+
+if __name__ == "__main__":
+    unittest.main()

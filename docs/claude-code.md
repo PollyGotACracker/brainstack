@@ -14,30 +14,23 @@
 
 ### hooks와 상태줄
 
-- `SessionStart`: 메인 에이전트의 Persona 주입
-- `SubagentStart`: 하위 에이전트의 Persona 주입
-- `PreToolUse`의 `Agent` 호출: 사용자 승인 요청
 - 상태줄: `Agent: <이름>` 표시
 - Windows Orca: 기존 상태줄 스크립트가 있으면 상태 입력 전달
 
+Hook 실행 오류 시 검사는 통과한다.
+원본 구현은 `hooks/check_write_scope.py`, `hooks/check_agent_input.py`, `hooks/check_refute_verdict.py`, `hooks/save_agent_result.py`, `tools/check_doc_rule.py`에서 확인한다.
+director(rio)는 사용자 마지막 메시지에 `승인`이 있을 때만 하위 에이전트를 호출할 수 있다. 실행 승인된 작업의 `작업 종류: 재작업` 호출은 예외이다.
+director의 파일 쓰기는 `log/state/`·`log/incident/`로 한정하고, researcher·reviewer는 쓰기를 막는다.
+
 ### env
 
-`CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`는 `1`이다.
-메인 에이전트만 subagent를 호출하도록 설정한다.
+`CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`는 `2`이다.
+메인 에이전트의 하위 researcher가 reviewer를 호출할 수 있도록 설정한다.
+Claude 하위 호출의 입력 경계 검사는 reviewer 대상에 적용한다.
 
 ### 권한
 
-- 허용:
-  `WebSearch`, `WebFetch`, `git status`, `git diff`, `git log`, `git show`, `git branch`,
-  `stat`, `date`, `wc`, `python tools/check_doc_rule.py`, `python ../tools/check_doc_rule.py`,
-  `python tools/set_skills.py check`, `python ../tools/set_skills.py check`
-- 승인 요청:
-  `git checkout`, `git switch`, `git restore`, `git stash`, `git tag`, `rm`, `rmdir`
-- 금지:
-  `Agent(fork)`, `git commit`, `git push`, `git merge`, `git rebase`, `git reset`,
-  `git revert`, `git cherry-pick`, `git clean`
-- 읽기 금지:
-  `.env`, `.env.*`, `secrets/**`
+- [관련 파일 참고](/tools/set_hooks/sub_settings.py)
 
 ## 전역 설정 설치
 
@@ -99,7 +92,7 @@ Git Bash에서는 다음 명령도 사용할 수 있다.
 claude agent rio
 ```
 
-### 하위 에이전트 호출
+### 서브에이전트 호출
 
 대화에서 에이전트를 지정해 요청한다.
 
@@ -107,5 +100,39 @@ claude agent rio
 @agent-nico 요구사항을 조사해 주세요.
 @agent-jelly 승인된 범위를 구현해 주세요.
 @agent-ricky 구현 결과를 검수해 주세요.
+@agent-ricky 조사 주장을 독립 반증해 주세요.
 @agent-pepper 작업 결과를 기록해 주세요.
 ```
+
+### 호출 입력 형식
+
+대화의 호출 요청을 실제 서브에이전트 입력으로 전달할 때 다음 형식을 사용한다.
+researcher는 상태 문서 경로와 필요한 절·항목 식별자를 받는다.
+
+```text
+작업 종류: 조사
+상태 문서: log/state/<작업-id>.md
+```
+
+worker 구현과 reviewer 일반 검수는 `작업 종류` 줄과 입력 문서 경로 한 줄을 받는다.
+
+```text
+작업 종류: 구현
+입력 문서: log/state/<작업-id>-input.md
+```
+
+reviewer의 독립 반증은 다음 입력을 받는다.
+`작업 종류: 반증` 표식은 정확히 한 번, 비어 있지 않은 `주장:` 필드는 한 번 이상 필요하다.
+나머지 허용 필드는 `증거:`, `출처:`, `판정 기준:`, `원문 발췌:`이다.
+각 필드 값은 한 줄이며, 여러 줄 발췌는 줄바꿈을 이스케이프한 JSON 문자열로 적는다.
+
+```text
+작업 종류: 반증
+주장: Claude Code 설정 원본의 하위 호출 깊이는 2이다.
+증거: CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH 설정값
+출처: tools/set_hooks/sub_settings.py:13
+판정 기준: 원본 설정값과 주장 일치 여부
+원문 발췌: "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH": "2"
+```
+
+reviewer는 반증에 필요한 웹 검색·원문 열람을 읽기 전용으로 수행한다.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """임시 bundle·HOME에서만 설치 도구의 설치·재설치·복구 동작을 검증한다.
 
-실행: python -B tools/hooks/sub_tests.py
+실행: python -B tools/set_hooks/sub_tests.py
 실제 사용자 HOME이나 저장소 정책 파일은 install 대상으로 사용하지 않는다.
 """
 from __future__ import annotations
@@ -66,7 +66,7 @@ prefix_rule(pattern=["git", "cherry-pick"], decision="forbidden")
 prefix_rule(pattern=["git", "clean"], decision="forbidden")
 """
 LEGACY_GLOBAL_BLOCK = """# >>> brainstack >>>
-# tools/set_hooks.py install이 관리하는 블록이다.
+# brainstack 설치 도구가 관리하는 블록이다.
 # brainstack Claude 설정 deny의 git 명령을 Codex 실행 정책으로 차단한다.
 # 샌드박스 밖에서 실행되는 명령만 대상이다.
 
@@ -107,7 +107,7 @@ MANAGED_LABELS = ["Claude 설정", "Codex hooks", "Codex 설정", "Codex 실행 
                   "Codex 전역 지침"]
 USER_BASHRC = "# user bashrc head\nalias ll='ls -l'\n"
 USER_CLAUDE_MD = "# user global memory\n"
-# sub_settings.py 끝에 붙여 모든 관리 항목을 바꾸는 코드이다.
+# settings 원본 끝에 붙여 모든 관리 항목을 바꾸는 코드이다.
 CHANGED_SETTINGS = '''
 CLAUDE_SETTINGS["agent"] = "rio"
 CLAUDE_SETTINGS["env"] = {"NEW_ENV": "x"}
@@ -135,7 +135,7 @@ class InstallTest(unittest.TestCase):
         self.entry = self.bundle / "tools" / "set_hooks.py"
         shutil.copy2(HOOKS_DIR.parent / "set_hooks.py", self.entry)
         self.home.mkdir()
-        (self.bundle / "AGENTS.principle.md").write_text("isolated test principle\n", encoding="utf-8")
+        (self.bundle / "AGENTS.md").write_text("isolated test principle\n", encoding="utf-8")
         self.local = self.bundle / ".codex/rules/permissions.rules"
         self.local.parent.mkdir(parents=True)
         self.local.write_text(LEGACY_PROJECT_POLICY, encoding="utf-8", newline="")
@@ -231,7 +231,7 @@ class InstallTest(unittest.TestCase):
         self.assertEqual(self.global_rules.read_text(encoding="utf-8"),
                          self.global_rules_text.replace(LEGACY_GLOBAL_BLOCK, ""))
 
-    # MV8·MV9·NV3: sub_settings.py 리터럴과 실제 설치 결과 대조
+    # settings 원본 리터럴과 실제 설치 결과 대조
     def test_settings_literals_are_installed_and_user_allow_hooks_are_preserved(self):
         self.claude.parent.mkdir(parents=True)
         user_hook = {"hooks": [{"type": "command", "command": "user-orca-hook"}]}
@@ -350,7 +350,7 @@ class InstallTest(unittest.TestCase):
         claude_md = self.claude_md.read_text(encoding="utf-8")
         self.assertTrue(claude_md.startswith(USER_CLAUDE_MD))
         self.assertIn(f"@{self.bundle.as_posix()}/changed.md", claude_md)
-        self.assertNotIn("AGENTS.principle.md", claude_md)
+        self.assertNotIn("AGENTS.md", claude_md)
         self.assert_success(self.run_cli("check"))
 
         after = self.load(self.record)

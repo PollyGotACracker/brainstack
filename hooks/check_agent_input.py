@@ -1,0 +1,133 @@
+"""PreToolUse hook: 메인 에이전트의 서브에이전트 호출 입력을 문서 경로와 식별자로 제한한다.
+
+사용: python check_agent_input.py --runner <claude|codex>
+hook 입력 JSON을 stdin으로 받는다. 위반이면 permissionDecision deny를 출력하고 나머지는 아무것도 출력하지 않는다.
+오류는 통과한다(fail-open).
+
+문서 입력 형식 (documenter는 상태 문서 1개와 입력 문서 0개 또는 1개를 받는다)
+    입력 문서: log/state/<작업-id>-input.md   (worker·reviewer 대상, documenter 대상은 0개 또는 1개)
+    상태 문서: log/state/<작업-id>.md         (documenter 포함 그 외 대상)
+    절: <절 식별자>      (0회 이상)
+    항목: <항목 식별자>  (0회 이상)
+- documenter·worker·reviewer·researcher와 해당 별칭만 검사한다. 다른 에이전트는 통과한다.
+- worker·reviewer 일반 검수는 `작업 종류` 줄과 입력 문서 경로 한 줄만 허용한다.
+- 첫 줄이 `작업 종류: <값>`이면 그 줄을 뺀 나머지 줄로 입력 형식을 검사한다.
+- reviewer 반증 입력은 `작업 종류: 반증` 한 줄과 `주장:`·`증거:`·`출처:`·`판정 기준:`·`원문 발췌:` 필드만 허용한다.
+  필드 값은 한 줄이고 여러 줄 발췌는 JSON 문자열의 줄바꿈 이스케이프 등으로 표현한다.
+  표식은 정확히 1개이며 비어 있지 않은 `주장:` 필드가 1개 이상 있어야 한다.
+  다른 입력 형식·대화·도구 로그 줄을 섞으면 차단한다.
+- 대상이 documenter이고 형식이 아니면 기록·문서 요청이므로 통과한다.
+- Claude 하위 호출은 reviewer 대상일 때만 입력 경계를 검사한다.
+- Codex는 호출자의 미관측 필드를 추정하지 않고 대상과 요청 본문의 명시적 표식으로 검사한다.
+
+hook 입력 필드 확인 상태
+- 확인: Claude Agent 도구 이름 `Agent`, tool_input의 subagent_type·prompt, 서브에이전트 안 hook 입력의 agent_id(공식 hooks 문서).
+- 확인: Codex 협업 도구 이름 `spawn_agent`, rollout JSONL 구조(response_item, payload.role·content).
+- 확인: Codex 0.159.2에서 spawn_agent에는 PreToolUse가 실행되지 않는다(openai/codex#49736). 수정되면 그대로 동작한다.
+- 미확인: Codex spawn_agent 인자의 역할·본문 필드명(agent_type·message로 가정).
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+
+SPAWN_TOOLS = {"Agent", "spawn_agent"}
+DOCUMENTER = {"documenter", "pepper"}
+RESEARCHER = {"researcher", "nico"}
+REVIEWER = {"reviewer", "ricky"}
+WORKER_REVIEWER = {"worker", "jelly"} | REVIEWER
+ROLES = DOCUMENTER | RESEARCHER | WORKER_REVIEWER
+
+TARGET_KEYS = ("subagent_type", "agent_type", "agent_role", "role")
+PROMPT_KEYS = ("prompt", "message")
+INPUT_LINE = re.compile(r"^입력 문서: log/state/[\w.\-]+-input\.md$")
+STATE_LINE = re.compile(r"^상태 문서: log/state/[\w.\-]+(?<!-input)\.md$")
+ID_LINE = re.compile(r"^(절|항목): .+$")
+REFUTE_MARKER = "작업 종류: 반증"
+KIND_LINE = re.compile(r"^작업 종류: .+$")
+REFUTE_LINE = re.compile(r"^(주장|증거|출처|판정 기준|원문 발췌): \S.*$")
+
+
+def call_info(data: dict) -> tuple[str, str]:
+    """서브에이전트 호출의 (대상, 입력 본문)을 반환한다. 서브에이전트 호출이 아니면 빈 값이다."""
+    if data.get("tool_name") not in SPAWN_TOOLS:
+        return "", ""
+    tin = data.get("tool_input") or {}
+    pick = lambda keys: next((tin[k] for k in keys if isinstance(tin.get(k), str)), "")
+    return pick(TARGET_KEYS), pick(PROMPT_KEYS)
+
+
+def is_main(data: dict, target: str, runner: str) -> bool:
+    if runner == "codex":
+        return True
+    return not data.get("agent_id")
+
+
+def is_format(prompt: str, target: str = "") -> bool:
+    """prompt가 대상별 입력 형식이면 True이다. target이 없으면 경로 줄이 1개 이상인 형식 모양만 확인한다."""
+    lines = [ln.strip() for ln in prompt.splitlines() if ln.strip()]
+    if lines and KIND_LINE.match(lines[0]):
+        lines = lines[1:]
+    n_in = sum(bool(INPUT_LINE.match(ln)) for ln in lines)
+    n_st = sum(bool(STATE_LINE.match(ln)) for ln in lines)
+    if not all(INPUT_LINE.match(ln) or STATE_LINE.match(ln) or ID_LINE.match(ln) for ln in lines):
+        return False
+    if target in WORKER_REVIEWER:
+        return len(lines) == 1 and (n_in, n_st) == (1, 0)
+    if target in DOCUMENTER:
+        return n_st == 1 and n_in <= 1
+    return n_in + n_st >= 1 if not target else (n_in, n_st) == (0, 1)
+
+
+def refute_mode(prompt: str) -> bool:
+    """정확한 요청 표식이 한 번 있을 때만 반증 mode이다."""
+    return sum(line.strip() == REFUTE_MARKER for line in prompt.splitlines()) == 1
+
+
+def is_refute_format(prompt: str) -> bool:
+    lines = [line.strip() for line in prompt.splitlines() if line.strip()]
+    return (refute_mode(prompt) and any(line.startswith("주장: ") for line in lines)
+            and all(line == REFUTE_MARKER or REFUTE_LINE.fullmatch(line) for line in lines))
+
+
+def deny(reason: str) -> dict:
+    return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
+                                   "permissionDecisionReason": reason}}
+
+
+def check(data: dict, runner: str) -> str | None:
+    """위반 사유를 반환한다. 통과면 None이다."""
+    target, prompt = call_info(data)
+    if target not in ROLES:
+        return None
+    if target in REVIEWER and any(line.strip() == REFUTE_MARKER for line in prompt.splitlines()):
+        return None if is_refute_format(prompt) else "반증 요청은 `작업 종류: 반증` 한 줄과 주장·증거·출처·판정 기준·원문 발췌 필드만 허용합니다."
+    if target not in REVIEWER and not is_main(data, target, runner) or target in DOCUMENTER and not is_format(prompt):
+        return None
+    if is_format(prompt, target):
+        return None
+    if target in WORKER_REVIEWER:
+        return "worker·reviewer 일반 검수 입력은 `입력 문서: log/state/<작업-id>-input.md` 한 줄만 허용합니다."
+    return "서브에이전트 입력은 `상태 문서: log/state/<작업-id>.md`와 `절:`·`항목:` 줄만 허용합니다."
+
+
+def main() -> int:
+    for stream in (sys.stdin, sys.stdout):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--runner", choices=("claude", "codex"), required=True)
+    runner = parser.parse_args().runner
+    try:
+        reason = check(json.load(sys.stdin), runner)
+    except Exception:
+        return 0
+    if reason:
+        json.dump(deny(reason), sys.stdout, ensure_ascii=False)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

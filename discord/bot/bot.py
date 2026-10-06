@@ -105,7 +105,7 @@ from summary import run_channel_summary
 from chat_loop import run_chat_conversation, run_chat_scheduler
 
 
-# 공통 규칙(AGENTS.principle.md)과 에이전트 파일(.claude/agents)은 저장소 루트의 원본을 읽는다.
+# 공통 규칙(AGENTS.md)과 에이전트 파일(.claude/agents)은 저장소 루트의 원본을 읽는다.
 RULES_ROOT = AGENT_ROOT.parent
 CONFIG_PATH = AGENT_ROOT / "config.json"
 MENTION = re.compile(r"<@!?(\d+)>")
@@ -1334,8 +1334,8 @@ async def main() -> None:
 
     config = Config.load(CONFIG_PATH)
 
-    if not (RULES_ROOT / "AGENTS.principle.md").is_file():
-        raise SystemExit(f"{RULES_ROOT / 'AGENTS.principle.md'}가 없습니다.")
+    if not (RULES_ROOT / "AGENTS.md").is_file():
+        raise SystemExit(f"{RULES_ROOT / 'AGENTS.md'}가 없습니다.")
     if not CHAT_PROMPT_PATH.is_file():
         raise SystemExit(f"{CHAT_PROMPT_PATH}가 없습니다.")
 

@@ -1,6 +1,6 @@
 """저장소·전역 파일·설치 기록 경로이다.
 
-ROOT는 tools/hooks/의 두 단계 위 저장소 폴더이다.
+ROOT는 이 저장소 폴더 최상위 경로이다.
 HOME은 실행 환경의 사용자 폴더이다.
 """
 from __future__ import annotations
@@ -8,7 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-PRINCIPLE = ROOT / "AGENTS.principle.md"
+COMMON = ROOT / "AGENTS.md"
 HOME = Path.home()
 
 CLAUDE_SETTINGS = HOME / ".claude" / "settings.json"
