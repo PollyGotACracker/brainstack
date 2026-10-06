@@ -57,7 +57,7 @@ WRITE_BASH = re.compile(r"(^|[;&|]\s*)(rm|mv|cp|mkdir|touch|tee|Set-Content|Out-
 # 연결·치환·리다이렉션 문자, 파일 출력·외부 실행 옵션이 있으면 deny한다.
 DIRECTOR_BASH = re.compile(
     r"\s*(?!.*(?:--output|--ext-diff))"
-    r"(?:git (?:status|log|show|diff|rev-parse)(?:\s[^;&|<>`$()\n]*)?"
+    r"(?:git (?:status|log|show|diff|rev-parse|config --get)(?:\s[^;&|<>`$()\n]*)?"
     r"|git branch --show-current"
     r"|date(?:\s+[\"']?\+[^;&|<>`$()\n]*)?)\s*")
 PATCH_FILE = re.compile(r"^\*\*\* (?:Add|Update|Delete) File: (.+)$|^\*\*\* Move to: (.+)$", re.M)
@@ -206,7 +206,9 @@ def check_director_write(data: dict, paths: list[Path]) -> str | None:
             continue
         if not path.name.endswith("-input.md"):
             continue
-        if new is not None and section(new, "확정 결정") != section(old, "확정 결정"):
+        added = [l for l in section(new or "", "확정 결정").splitlines()
+            if l.strip() and l not in section(old, "확정 결정").splitlines()]
+        if new is not None and any("조사 문서 결정" in l for l in added):
             research = read(path.with_name(path.name.replace("-input.md", "-research.md")))
             if research and research_needed(research) and raw_empty(research, "최종 조사 원문"):
                 return "조사 문서 최종 조사 원문이 비어 있어 확정 결정을 기록할 수 없습니다. 조사가 필요합니다."
@@ -239,8 +241,9 @@ def check(data: dict, runner: str) -> str | None:
     if role == "director" and data.get("tool_name") == "Bash":
         cmd = (data.get("tool_input") or {}).get("command")
         cmd = " ".join(cmd) if isinstance(cmd, list) else cmd or ""
-        if not DIRECTOR_BASH.fullmatch(cmd):
-            return "director Bash는 git 조회(status·log·show·diff·rev-parse·branch --show-current)와 date만 허용합니다."
+        if not all(DIRECTOR_BASH.fullmatch(part) for part in cmd.split("&&")):
+            return ("director Bash는 git 조회(status·log·show·diff·rev-parse·config --get·branch --show-current)와 date만 허용합니다. "
+                "파일 목록은 Glob, 내용은 Read, 검색은 Grep을 쓰십시오.")
     paths = targets(data)
     if paths is None:
         return None

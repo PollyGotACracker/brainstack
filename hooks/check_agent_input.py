@@ -33,6 +33,7 @@ import argparse
 import json
 import re
 import sys
+from sub_role import resolve_role
 
 SPAWN_TOOLS = {"Agent", "spawn_agent"}
 DOCUMENTER = {"documenter", "pepper"}
@@ -73,7 +74,8 @@ def is_format(prompt: str, target: str = "") -> bool:
     if lines and KIND_LINE.match(lines[0]):
         lines = lines[1:]
     if target in RESEARCHER:
-        return len(lines) == 1 and bool(RESEARCH_LINE.match(lines[0]))
+        return (bool(lines) and bool(RESEARCH_LINE.match(lines[0]))
+            and all(ID_LINE.match(ln) and ln.startswith("항목: ") for ln in lines[1:]))
     n_in = sum(bool(INPUT_LINE.match(ln)) for ln in lines)
     n_st = sum(bool(STATE_LINE.match(ln)) for ln in lines)
     if not all(INPUT_LINE.match(ln) or STATE_LINE.match(ln) or ID_LINE.match(ln) for ln in lines):
@@ -106,6 +108,8 @@ def check(data: dict, runner: str) -> str | None:
     target, prompt = call_info(data)
     if target not in ROLES:
         return None
+    if data.get("agent_id") and resolve_role(data) == "researcher" and target not in REVIEWER:
+        return "researcher는 reviewer만 호출할 수 있습니다."
     if target in REVIEWER and any(line.strip() == REFUTE_MARKER for line in prompt.splitlines()):
         return None if is_refute_format(prompt) else "반증 요청은 `작업 종류: 반증` 한 줄과 주장·증거·출처·판정 기준·원문 발췌 필드만 허용합니다."
     if target not in REVIEWER and not is_main(data, target, runner) or target in DOCUMENTER and not is_format(prompt):

@@ -68,9 +68,14 @@ def read_session(path: str) -> list[dict]:
     return entries
 
 
+# Claude Code가 사용자 메시지 자리에 넣는 하네스 알림이다. 사용자 발화로 보지 않는다.
+HARNESS = ("<task-notification>", "<local-command-", "<command-name>")
+
+
 def turn(entries: list[dict]) -> tuple[str, str, list[dict]]:
     """(마지막 사용자 메시지, 그 직전 assistant 텍스트, 그 뒤 현재 턴 항목)을 반환한다."""
-    last = max((i for i, e in enumerate(entries) if e["role"] == "user" and e["text"].strip()), default=-1)
+    said = lambda e: e["role"] == "user" and e["text"].strip() and not e["text"].lstrip().startswith(HARNESS)
+    last = max((i for i, e in enumerate(entries) if said(e)), default=-1)
     before = entries[:last]
     first = max((i for i, e in enumerate(before) if e["role"] == "user" and e["text"].strip()), default=-1)
     previous = "\n".join(e["text"] for e in before[first + 1:] if e["role"] == "assistant")
