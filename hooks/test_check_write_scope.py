@@ -41,6 +41,34 @@ INPUT_APPROVED = """# t 입력
 """
 
 
+PLAN_OK = """# t 입력
+
+### 요구사항 목록
+
+#### 1. 예시
+
+목표: a
+결과: b
+
+- 작업: c
+- 검수: d (정적)
+  기대 결과: e
+
+## 작업 계획
+
+### 검수 계획
+
+- 검증 명령
+  - `python -m unittest`: 요구사항 1
+
+## 승인
+
+### 실행 승인 범위
+
+- 승인 상태: 승인
+"""
+
+
 def claude_line(role: str, text: str) -> str:
     content = text if role == "user" else [{"type": "text", "text": text}]
     return json.dumps({"type": role, "message": {"content": content}}, ensure_ascii=False)
@@ -110,8 +138,18 @@ class WriteScope(unittest.TestCase):
             data = {"tool_name": "Bash", "tool_input": {"command": cmd}, "agent_type": "rio"}
             self.assertIsNotNone(hook.check(data, "claude"), cmd)
 
+    def test_execution_approval_needs_filled_plan(self):
+        self.assertIsNone(self.write("log/state/t-input.md", PLAN_OK))
+        for broken in (PLAN_OK.replace("`python -m unittest`", "`<명령>`"),
+                       PLAN_OK.replace("  기대 결과: e\n", ""),
+                       PLAN_OK.replace("목표: a", "목표: <요구사항의 목표>"),
+                       PLAN_OK.replace("#### 1. 예시", "")):
+            self.assertIsNotNone(self.write("log/state/t-input.md", broken))
+        commented = PLAN_OK.replace("### 검수 계획", "<!-- 안내 -->\n\n### 검수 계획").replace("목표: a", "목표: `<타입>` 형식 확인")
+        self.assertIsNone(self.write("log/state/t-input.md", commented))
+
     def test_approval_status_needs_user_approval(self):
-        doc = "### 실행 승인 범위\n\n- 승인 상태: 승인\n"
+        doc = "### 착수 승인 범위\n\n- 승인 상태: 승인\n"
         no = self.transcript(("assistant", "계획"), ("user", "좋아 계속"))
         self.assertIsNotNone(self.write("log/state/t-input.md", doc, transcript=no))
         self.assertIsNone(self.write("log/state/t-input.md", doc))
@@ -135,7 +173,9 @@ class WriteScope(unittest.TestCase):
 
     def test_decision_needs_research_result(self):
         (self.state / "t-research.md").write_text(RESEARCH, encoding="utf-8")
-        doc = "### 확정 결정\n\n1. A를 쓴다.\n"
+        user = "### 확정 결정\n\n1. Windows만 대상으로 한다.\n   - 출처: 사용자 결정 요약\n"
+        self.assertIsNone(self.write("log/state/t-input.md", user))
+        doc = "### 확정 결정\n\n1. A를 쓴다.\n   - 출처: 조사 문서 결정 1과 사용자 판단 요약\n"
         self.assertIsNotNone(self.write("log/state/t-input.md", doc))
         (self.state / "t-research.md").write_text(RESEARCH.replace("기록 없음", "결정 1 권고: A"), encoding="utf-8")
         self.assertIsNone(self.write("log/state/t-input.md", doc))

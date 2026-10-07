@@ -14,6 +14,8 @@
   - log/state/ 밖이면 deny한다. log/state/.active는 hook 전용이다.
   - Bash는 git 조회(status·log·show·diff·rev-parse·branch --show-current)와 date 단일 명령만 허용하고 나머지는 deny한다.
   - 승인 확인: `승인 상태: 승인` 줄을 새로 쓰려면 사용자 마지막 메시지가 승인 명령으로 끝나야 한다.
+  - 계획 확인: 입력 문서 `실행 승인 범위`를 승인으로 바꾸려면 요구사항마다 검수·기대 결과가 있고,
+    검수 계획에 검증 명령이 있고, 요구사항 목록·작업 계획에 채우지 않은 자리표시가 없어야 한다.
   - 조사 확인: 외부 조사가 필요한 작업에서 조사 문서 `최종 조사 원문`이 비어 있으면 `확정 결정` 변경을 deny한다.
   - 원문 보존: 조사 문서 `최종 조사 원문`과 `<n>회차 반증 요청`·`<n>회차 반증 원문` 블록 변경을 deny한다.
     새 조사 문서는 원문 칸이 비었거나 자리표시·`기록 없음`일 때만 허용한다.
@@ -60,6 +62,10 @@ DIRECTOR_BASH = re.compile(
     r"(?:git (?:status|log|show|diff|rev-parse|config --get)(?:\s[^;&|<>`$()\n]*)?"
     r"|git branch --show-current"
     r"|date(?:\s+[\"']?\+[^;&|<>`$()\n]*)?)\s*")
+# 계획 확인용이다. 코드·인라인 코드·HTML 주석 안의 꺾쇠는 자리표시로 보지 않는다.
+CODE = re.compile(r"(`{3,})[^\n]*\n.*?\n\1|`[^`\n]*`|<!--.*?-->", re.S)
+PLACEHOLDER = re.compile(r"<[^<>\n]+>")
+COMMAND = re.compile(r"^\s*- `[^`<>\n]+`", re.M)
 PATCH_FILE = re.compile(r"^\*\*\* (?:Add|Update|Delete) File: (.+)$|^\*\*\* Move to: (.+)$", re.M)
 
 
@@ -206,6 +212,10 @@ def check_director_write(data: dict, paths: list[Path]) -> str | None:
             continue
         if not path.name.endswith("-input.md"):
             continue
+        if newly_approved(new, old, "실행 승인 범위"):
+            gaps = plan_gaps(new)
+            if gaps:
+                return "실행 승인 전에 입력 문서 계획을 채우십시오: " + "; ".join(gaps[:5])
         added = [l for l in section(new or "", "확정 결정").splitlines()
             if l.strip() and l not in section(old, "확정 결정").splitlines()]
         if new is not None and any("조사 문서 결정" in l for l in added):
@@ -213,6 +223,30 @@ def check_director_write(data: dict, paths: list[Path]) -> str | None:
             if research and research_needed(research) and raw_empty(research, "최종 조사 원문"):
                 return "조사 문서 최종 조사 원문이 비어 있어 확정 결정을 기록할 수 없습니다. 조사가 필요합니다."
     return None
+
+
+def newly_approved(new: str | None, old: str, title: str) -> bool:
+    """title 절의 `승인 상태: 승인` 줄이 이번 쓰기로 새로 생기면 True이다."""
+    has = lambda text: any(APPROVED.match(l) for l in section(text, title).splitlines())
+    return new is not None and has(new) and not has(old)
+
+
+def plan_gaps(text: str) -> list[str]:
+    """실행 승인 전에 채워야 할 입력 문서 칸 목록이다. 비어 있으면 통과이다."""
+    gaps = []
+    reqs = re.split(r"^#### ", section(text, "요구사항 목록"), flags=re.M)[1:]
+    if not reqs:
+        gaps.append("요구사항 목록에 요구사항이 없다")
+    for req in reqs:
+        if "- 검수:" not in req or "기대 결과:" not in req:
+            gaps.append(f"요구사항 {req.splitlines()[0].strip()}: 검수·기대 결과 없음")
+    if not COMMAND.search(section(text, "검수 계획")):
+        gaps.append("검수 계획: 검증 명령 없음")
+    for title in ("요구사항 목록", "작업 계획"):
+        hits = sorted(set(PLACEHOLDER.findall(CODE.sub("", section(text, title)))))
+        if hits:
+            gaps.append(f"{title}: 채우지 않은 칸 {', '.join(hits[:3])}")
+    return gaps
 
 
 def rounds(text: str) -> list[tuple[str, str]]:
